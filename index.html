@@ -12,23 +12,22 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; background: #060F1E; }
+    html, body { background: #f0eded; font-family: 'Segoe UI', -apple-system, Arial, sans-serif; }
     #root { min-height: 100vh; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #060F1E; }
-    ::-webkit-scrollbar-thumb { background: #1A3660; border-radius: 99px; }
-    ::-webkit-scrollbar-thumb:hover { background: #2A5096; }
-    * { scrollbar-width: thin; scrollbar-color: #1A3660 #060F1E; }
-    input::placeholder { color: #6B85AA; opacity: 1; }
+    ::-webkit-scrollbar-track { background: #f0eded; }
+    ::-webkit-scrollbar-thumb { background: #d4b8b8; border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: #9E1B1B; }
+    * { scrollbar-width: thin; scrollbar-color: #d4b8b8 #f0eded; }
+    input::placeholder { color: #a89090; opacity: 1; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .spin { display: inline-block; animation: spin 1.2s linear infinite; }
-    @keyframes fadein { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-    .fadein { animation: fadein 0.4s ease both; }
+    @keyframes fadein { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+    .fadein { animation: fadein 0.35s ease both; }
   </style>
 </head>
 <body>
 <div id="root"></div>
-
 <script type="text/babel">
 const { useState, useEffect, useMemo } = React;
 
@@ -44,20 +43,25 @@ const FETCH_URLS = [
   `https://api.allorigins.win/raw?url=${encodeURIComponent(DIRECT_2)}`,
 ];
 
-/* ── TOKENS ─────────────────────────────────────────────────────────────── */
+/* ── TOKENS — Modelo 1.0 Metrocasa ──────────────────────────────────────── */
 const T = {
-  bgBase:  "#060F1E",
-  bgSurf:  "#0D1B33",
-  bgCard:  "#112041",
-  border:  "#1A3660",
-  txt:     "#E8F0FF",
-  txtSub:  "#6B85AA",
-  accent:  "#00A3FF",
-  success: "#22D37C",
-  danger:  "#FF3D57",
-  warn:    "#F5A623",
-  purple:  "#8B5CF6",
-  cyan:    "#06B6D4",
+  bgPage:   "#f0eded",
+  bgCard:   "#ffffff",
+  bgZebra:  "#faf6f6",
+  border:   "#e8dede",
+  borderMd: "#d4b8b8",
+  red:      "#9E1B1B",
+  redDark:  "#6B1010",
+  redLight: "#fdf0f0",
+  txt:      "#1a1a1a",
+  txtSub:   "#7a6060",
+  green:    "#1A7D1A",
+  danger:   "#A32D2D",
+  amber:    "#92400e",
+  blue:     "#1d4ed8",
+  purple:   "#6d28d9",
+  cyan:     "#0e7490",
+  teal:     "#0f766e",
 };
 
 /* ── HELPERS ─────────────────────────────────────────────────────────────── */
@@ -67,14 +71,12 @@ const parseNum = (v) => {
   const n = parseFloat(s.trim());
   return isNaN(n) ? 0 : n;
 };
-
 const fmtBRL = (n) => {
   const abs = Math.abs(n), sign = n < 0 ? "-" : "";
   if (abs >= 1_000_000) return `${sign}R$ ${(abs/1_000_000).toFixed(1).replace(".",",")}M`;
   if (abs >= 1_000)     return `${sign}R$ ${Math.round(abs/1_000).toLocaleString("pt-BR")}K`;
   return new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0}).format(n);
 };
-
 const pct = (a,b) => b===0 ? 0 : Math.round((a/b)*100);
 
 /* ── STATUS CATEGORIZERS ─────────────────────────────────────────────────── */
@@ -85,7 +87,6 @@ const catDeb = (s="") => {
   if (l.includes("procura"))   return "Procuração Assinada";
   return s.trim() || "Sem Info";
 };
-
 const catVen = (s="") => {
   const u = s.toUpperCase();
   if (!s.trim()) return "Sem Status";
@@ -99,7 +100,6 @@ const catVen = (s="") => {
   if (u.includes("ESTOQUE")||u.includes("PRONTOS")) return "Estoque";
   return "Outros";
 };
-
 const catRep = (s="") => {
   const u = s.toUpperCase();
   if (!s.trim()) return "Pendente";
@@ -118,39 +118,39 @@ const catRep = (s="") => {
   return "Pendente";
 };
 
-/* ── COLOR MAPS ──────────────────────────────────────────────────────────── */
+/* ── COLOR MAPS (calibrados para fundo branco) ───────────────────────────── */
 const C = {
   deb: {
-    "Registrado / Averbado": T.success,
-    "Em Registro":           T.accent,
+    "Registrado / Averbado": T.green,
+    "Em Registro":           T.blue,
     "Procuração Assinada":   T.purple,
     "Sem Info":              T.txtSub,
   },
   ven: {
-    "SV Validado":          T.success,
-    "Esteira Crédito":      T.accent,
+    "SV Validado":          T.green,
+    "Esteira Crédito":      T.blue,
     "Desistência":          T.danger,
-    "Proc. Judicial":       "#dc2626",
+    "Proc. Judicial":       "#7f1d1d",
     "Transf. p/ Negoc.":   T.cyan,
     "Analisando Contrato":  T.purple,
-    "Em Análise CCA":       T.warn,
+    "Em Análise CCA":       T.amber,
     "Estoque":              T.txtSub,
-    "Outros":               "#475569",
-    "Sem Status":           "#374151",
+    "Outros":               "#9ca3af",
+    "Sem Status":           "#c4b5b5",
   },
   rep: {
-    "Finalizado / Garantia": T.success,
-    "Venda Direta":          "#10b981",
-    "Distrato Concluído":    T.warn,
+    "Finalizado / Garantia": T.green,
+    "Venda Direta":          T.teal,
+    "Distrato Concluído":    T.amber,
     "Em Distrato":           T.danger,
-    "Inconforme":            "#f43f5e",
-    "Assinado / Cartório":   T.accent,
+    "Inconforme":            "#be123c",
+    "Assinado / Cartório":   T.blue,
     "Em Conformidade":       T.purple,
-    "Subir p/ CEHOP":        "#6366f1",
-    "Em Negociação":         T.warn,
+    "Subir p/ CEHOP":        "#4338ca",
+    "Em Negociação":         T.amber,
     "Registrado":            T.cyan,
-    "Em Análise":            "#0ea5e9",
-    "Reavaliar":             "#fb923c",
+    "Em Análise":            "#0369a1",
+    "Reavaliar":             "#c2410c",
     "Pendente":              T.txtSub,
   },
 };
@@ -162,57 +162,77 @@ const groupCount = (arr, fn) => {
   return Object.entries(m).map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value);
 };
 
-/* ── ATOMS ───────────────────────────────────────────────────────────────── */
+/* ── BADGE ───────────────────────────────────────────────────────────────── */
 function Badge({ text, map }) {
   const c = map[text] || T.txtSub;
   return (
     <span style={{
-      display:"inline-block", background:c+"1A", color:c,
-      border:`1px solid ${c}44`, borderRadius:4,
-      padding:"2px 8px", fontSize:11, fontWeight:700,
-      whiteSpace:"nowrap", letterSpacing:"0.01em",
+      display:"inline-block",
+      background: c+"18",
+      color: c,
+      border:`1px solid ${c}55`,
+      borderRadius:4,
+      padding:"2px 8px",
+      fontSize:11,
+      fontWeight:700,
+      whiteSpace:"nowrap",
+      letterSpacing:"0.01em",
     }}>{text}</span>
   );
 }
 
-function KPICard({ label, value, sub, accent=T.txt, bg }) {
+/* ── KPI CARD ────────────────────────────────────────────────────────────── */
+function KPICard({ label, value, sub, color=T.txt, alert=false }) {
   return (
     <div style={{
-      background: bg||T.bgCard, border:`1px solid ${T.border}`,
-      borderRadius:10, padding:"18px 22px", flex:1, minWidth:145,
+      background: alert ? "#fdf0f0" : T.bgCard,
+      border:`1px solid ${alert ? T.danger+"55" : T.border}`,
+      borderTop:`3px solid ${alert ? T.danger : T.red}`,
+      borderRadius:10,
+      padding:"16px 20px",
+      flex:1, minWidth:145,
+      boxShadow:"0 1px 4px #00000010",
     }}>
       <p style={{margin:"0 0 8px",color:T.txtSub,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{label}</p>
-      <p style={{margin:0,color:accent,fontSize:24,fontWeight:800,lineHeight:1,fontVariantNumeric:"tabular-nums"}}>{value}</p>
+      <p style={{margin:0,color,fontSize:23,fontWeight:800,lineHeight:1,fontVariantNumeric:"tabular-nums"}}>{value}</p>
       {sub && <p style={{margin:"6px 0 0",color:T.txtSub,fontSize:11}}>{sub}</p>}
     </div>
   );
 }
 
+/* ── PIPELINE CARD ───────────────────────────────────────────────────────── */
 function PipelineCard({ title, data, map }) {
   const total = data.reduce((s,d)=>s+d.value,0);
   return (
     <div style={{
-      background:T.bgCard, border:`1px solid ${T.border}`,
-      borderRadius:10, padding:"20px 24px", flex:1, minWidth:270,
+      background:T.bgCard,
+      border:`1px solid ${T.border}`,
+      borderRadius:10,
+      overflow:"hidden",
+      flex:1, minWidth:270,
+      boxShadow:"0 1px 4px #00000010",
     }}>
-      <p style={{margin:"0 0 18px",color:T.txt,fontSize:13,fontWeight:700}}>{title}</p>
-      <div style={{display:"flex",flexDirection:"column",gap:11}}>
+      <div style={{background:T.red,padding:"10px 18px"}}>
+        <p style={{margin:0,color:"#fff",fontSize:12,fontWeight:700,letterSpacing:"0.03em"}}>{title}</p>
+      </div>
+      <div style={{padding:"16px 18px",display:"flex",flexDirection:"column",gap:10}}>
         {data.map(({name,value}) => {
           const p = pct(value,total);
           const c = map[name] || T.txtSub;
           return (
             <div key={name}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:5}}>
-                <span style={{color:"#CBD5E1",fontSize:12}}>{name}</span>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:4}}>
+                <span style={{color:T.txt,fontSize:12}}>{name}</span>
                 <span style={{color:c,fontSize:12,fontWeight:800,fontVariantNumeric:"tabular-nums"}}>
-                  {value}&thinsp;<span style={{color:T.txtSub,fontWeight:400}}>({p}%)</span>
+                  {value}<span style={{color:T.txtSub,fontWeight:400}}> ({p}%)</span>
                 </span>
               </div>
-              <div style={{height:4,background:T.bgSurf,borderRadius:99,overflow:"hidden"}}>
+              <div style={{height:5,background:"#f0e8e8",borderRadius:99,overflow:"hidden"}}>
                 <div style={{
                   height:"100%", width:`${p}%`,
-                  background:`linear-gradient(90deg,${c}99,${c})`,
-                  borderRadius:99, transition:"width 0.6s cubic-bezier(.4,0,.2,1)",
+                  background:`linear-gradient(90deg,${c}bb,${c})`,
+                  borderRadius:99,
+                  transition:"width 0.6s cubic-bezier(.4,0,.2,1)",
                 }}/>
               </div>
             </div>
@@ -223,36 +243,68 @@ function PipelineCard({ title, data, map }) {
   );
 }
 
+/* ── EXPOSURE BAR ────────────────────────────────────────────────────────── */
 function ExposureBar({ totalCustas, totalVendas, totalLucro }) {
   const base    = Math.max(totalCustas, totalVendas) || 1;
   const pctRec  = Math.min(100,(totalVendas/base)*100);
   const isProfit = totalLucro >= 0;
   return (
     <div style={{
-      background:T.bgCard, border:`1px solid ${T.border}`,
-      borderRadius:10, padding:"18px 28px", marginBottom:24,
+      background:T.bgCard,
+      border:`1px solid ${T.border}`,
+      borderRadius:10,
+      overflow:"hidden",
+      marginBottom:24,
+      boxShadow:"0 1px 4px #00000010",
     }}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-        <span style={{color:T.txtSub,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>
-          Exposição de Capital · Portfólio
-        </span>
-        <span style={{fontSize:13,fontWeight:800,color:isProfit?T.success:T.danger,fontVariantNumeric:"tabular-nums"}}>
-          {isProfit?"▲":"▼"} {fmtBRL(Math.abs(totalLucro))} {isProfit?"lucro previsto":"exposição a prejuízo"}
+      <div style={{background:T.redDark,padding:"10px 20px"}}>
+        <span style={{color:"#fff",fontSize:12,fontWeight:700,letterSpacing:"0.03em"}}>
+          💰  Exposição de Capital — Portfólio Consolidado
         </span>
       </div>
-      <div style={{height:14,background:T.bgSurf,borderRadius:99,overflow:"hidden",position:"relative"}}>
-        <div style={{position:"absolute",inset:0,background:isProfit?T.danger+"33":T.danger+"55",width:"100%"}}/>
-        <div style={{
-          position:"absolute",top:0,left:0,height:"100%",
-          width:`${pctRec}%`,
-          background:`linear-gradient(90deg,${T.success}88,${T.success})`,
-          borderRadius:"99px 0 0 99px",
-          transition:"width 0.8s cubic-bezier(.4,0,.2,1)",
-        }}/>
+      <div style={{padding:"16px 24px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <span style={{color:T.txtSub,fontSize:12}}>Capital investido vs. retorno previsto</span>
+          <span style={{fontSize:13,fontWeight:800,color:isProfit?T.green:T.danger,fontVariantNumeric:"tabular-nums"}}>
+            {isProfit?"▲":"▼"} {fmtBRL(Math.abs(totalLucro))} {isProfit?"lucro previsto":"exposição a prejuízo"}
+          </span>
+        </div>
+        <div style={{height:12,background:"#f0e8e8",borderRadius:99,overflow:"hidden",position:"relative"}}>
+          <div style={{
+            position:"absolute",inset:0,
+            background:T.danger+"33",
+            width:"100%",
+          }}/>
+          <div style={{
+            position:"absolute",top:0,left:0,height:"100%",
+            width:`${pctRec}%`,
+            background:`linear-gradient(90deg,${T.green}88,${T.green})`,
+            borderRadius:"99px 0 0 99px",
+            transition:"width 0.8s cubic-bezier(.4,0,.2,1)",
+          }}/>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:8}}>
+          <span style={{color:T.green,fontSize:11,fontWeight:700}}>▶ Retorno previsto: {fmtBRL(totalVendas)}</span>
+          <span style={{color:T.danger,fontSize:11,fontWeight:700}}>Capital investido: {fmtBRL(totalCustas)}</span>
+        </div>
       </div>
-      <div style={{display:"flex",justifyContent:"space-between",marginTop:8}}>
-        <span style={{color:T.success,fontSize:11,fontWeight:600}}>▶ Retorno previsto: {fmtBRL(totalVendas)}</span>
-        <span style={{color:T.danger, fontSize:11,fontWeight:600}}>Capital investido: {fmtBRL(totalCustas)}</span>
+    </div>
+  );
+}
+
+/* ── LOGO ────────────────────────────────────────────────────────────────── */
+function Logo() {
+  return (
+    <div style={{display:"flex",alignItems:"center",gap:8}}>
+      <div style={{
+        background:T.red, borderRadius:6,
+        width:32, height:32,
+        display:"flex", alignItems:"center", justifyContent:"center",
+        fontSize:18,
+      }}>🏠</div>
+      <div>
+        <div style={{fontSize:16,fontWeight:900,color:T.red,letterSpacing:"-0.02em",lineHeight:1}}>METROCASA</div>
+        <div style={{fontSize:10,color:T.txtSub,fontWeight:600,letterSpacing:"0.04em"}}>CONSTRUTORA</div>
       </div>
     </div>
   );
@@ -270,9 +322,7 @@ function Dashboard() {
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
-    setErr(null);
-
+    setLoading(true); setErr(null);
     (async () => {
       for (const url of FETCH_URLS) {
         try {
@@ -280,31 +330,22 @@ function Dashboard() {
           if (!res.ok) continue;
           const txt = await res.text();
           if (!txt.includes(",") || txt.trim().startsWith("<!")) continue;
-
           const result = await new Promise(resolve => {
             Papa.parse(txt, {
-              header: true,
+              header:true,
               transformHeader: h => h.replace(/^\uFEFF/,"").trim(),
-              skipEmptyLines: true,
+              skipEmptyLines:true,
               complete: ({data}) => resolve(data.filter(r => r["N"] && !isNaN(parseInt(r["N"])))),
               error: () => resolve([]),
             });
           });
-
           if (result.length > 0 && alive) {
-            setRows(result);
-            setLastUpd(new Date());
-            setLoading(false);
-            return;
+            setRows(result); setLastUpd(new Date()); setLoading(false); return;
           }
-        } catch(e) { /* try next */ }
+        } catch(e) {}
       }
-      if (alive) {
-        setErr("Não foi possível carregar a planilha. Certifique-se de que o acesso está configurado como 'qualquer pessoa com o link pode ver'.");
-        setLoading(false);
-      }
+      if (alive) { setErr("Não foi possível carregar a planilha."); setLoading(false); }
     })();
-
     return () => { alive = false; };
   }, [tick]);
 
@@ -348,39 +389,34 @@ function Dashboard() {
     return ["Em Distrato","Inconforme","Reavaliar"].includes(rep) || parseNum(r["PREVISÃO DE LUCRO"]) < -15000;
   }), [filtered]);
 
-  /* loading */
+  /* Loading */
   if (loading) return (
-    <div style={{background:T.bgBase,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Inter,sans-serif"}}>
-      <div style={{textAlign:"center",color:T.txtSub}}>
-        <div className="spin" style={{fontSize:36,color:T.accent,display:"block",marginBottom:14}}>◌</div>
-        <div style={{fontSize:15,color:T.txt}}>Carregando base de dados...</div>
-        <div style={{fontSize:12,marginTop:6}}>Conectando ao Google Sheets</div>
+    <div style={{background:T.bgPage,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Segoe UI',Arial,sans-serif"}}>
+      <div style={{textAlign:"center"}}>
+        <div className="spin" style={{fontSize:32,color:T.red,display:"block",marginBottom:14}}>◌</div>
+        <div style={{fontSize:15,color:T.txt,fontWeight:600}}>Carregando base de dados...</div>
+        <div style={{fontSize:12,color:T.txtSub,marginTop:6}}>Conectando ao Google Sheets</div>
       </div>
     </div>
   );
 
-  /* error */
+  /* Error */
   if (err) return (
-    <div style={{background:T.bgBase,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Inter,sans-serif",padding:32}}>
+    <div style={{background:T.bgPage,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Segoe UI',Arial,sans-serif",padding:32}}>
       <div style={{textAlign:"center",maxWidth:520}}>
-        <div style={{color:T.danger,fontSize:18,marginBottom:16,fontWeight:800}}>⚠ Erro ao carregar planilha</div>
-        <div style={{color:T.txtSub,fontSize:13,marginBottom:24,lineHeight:1.7}}>{err}</div>
-
-        <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:10,padding:"16px 20px",marginBottom:24,textAlign:"left"}}>
-          <p style={{color:T.txt,fontSize:12,fontWeight:700,marginBottom:10}}>Checklist de diagnóstico:</p>
+        <Logo/>
+        <div style={{color:T.danger,fontSize:16,margin:"20px 0 12px",fontWeight:800}}>⚠ Erro ao carregar planilha</div>
+        <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:10,padding:"16px 20px",marginBottom:20,textAlign:"left"}}>
+          <p style={{color:T.txt,fontSize:12,fontWeight:700,marginBottom:10}}>Checklist:</p>
           <p style={{color:T.txtSub,fontSize:12,lineHeight:1.8}}>
-            ① A planilha está compartilhada como <strong style={{color:T.warn}}>"Qualquer pessoa com o link"</strong> com permissão de <strong style={{color:T.warn}}>Visualizador</strong>?<br/>
-            ② Está abrindo o arquivo HTML diretamente pelo explorer (file://)? Isso bloqueia requisições externas.<br/>
-            ③ Se sim, abra o terminal na pasta do arquivo e rode:<br/>
-            <code style={{background:"#0a0f1a",color:T.accent,padding:"4px 10px",borderRadius:4,display:"inline-block",marginTop:6,fontSize:11}}>
-              python3 -m http.server 8080
-            </code><br/>
-            Depois acesse <code style={{color:T.accent,fontSize:11}}>http://localhost:8080</code> no browser.
+            ① Planilha compartilhada como <strong style={{color:T.red}}>"Qualquer pessoa com o link"</strong> + <strong style={{color:T.red}}>Visualizador</strong>?<br/>
+            ② Abrindo via <code>file://</code>? Use servidor local:<br/>
+            <code style={{background:"#f9f0f0",color:T.red,padding:"3px 10px",borderRadius:4,display:"inline-block",marginTop:6,fontSize:11}}>python3 -m http.server 8080</code><br/>
+            Depois acesse <code style={{color:T.blue,fontSize:11}}>http://localhost:8080</code>
           </p>
         </div>
-
         <button onClick={()=>setTick(t=>t+1)} style={{
-          background:T.accent,color:"#fff",border:"none",
+          background:T.red,color:"#fff",border:"none",
           padding:"10px 28px",borderRadius:8,cursor:"pointer",
           fontFamily:"inherit",fontSize:14,fontWeight:700,
         }}>↻ Tentar Novamente</button>
@@ -388,62 +424,98 @@ function Dashboard() {
     </div>
   );
 
-  /* TabBtn */
-  const Tab = ({id, label}) => (
+  /* Tab button */
+  const Tab = ({id,label}) => (
     <button onClick={()=>setTab(id)} style={{
       padding:"7px 18px", borderRadius:7, border:"none", cursor:"pointer",
       fontWeight:700, fontSize:13, fontFamily:"inherit",
-      background: tab===id ? T.accent : "transparent",
-      color:      tab===id ? "#fff"   : T.txtSub,
-      transition: "all 0.2s",
+      background: tab===id ? T.red : "transparent",
+      color:      tab===id ? "#fff" : T.txtSub,
+      transition:"all 0.15s",
     }}>{label}</button>
   );
 
+  /* TH style */
+  const TH = ({children, dark=false}) => (
+    <th style={{
+      padding:"10px 14px", textAlign:"left",
+      background: dark ? T.redDark : T.red,
+      color:"#fff", fontSize:11, fontWeight:700,
+      textTransform:"uppercase", letterSpacing:"0.06em",
+      whiteSpace:"nowrap", borderRight:`1px solid ${T.redDark}55`,
+    }}>{children}</th>
+  );
+
   return (
-    <div className="fadein" style={{background:T.bgBase,minHeight:"100vh",fontFamily:"Inter,-apple-system,sans-serif",color:T.txt}}>
+    <div className="fadein" style={{background:T.bgPage,minHeight:"100vh",fontFamily:"'Segoe UI',-apple-system,Arial,sans-serif",color:T.txt}}>
 
       {/* ── HEADER ── */}
       <header style={{
-        background:T.bgSurf, borderBottom:`1px solid ${T.border}`,
-        padding:"0 32px", display:"flex", justifyContent:"space-between",
-        alignItems:"center", height:58,
+        background:T.bgCard,
+        borderBottom:`2px solid ${T.red}`,
+        padding:"0 32px",
+        display:"flex", justifyContent:"space-between", alignItems:"center",
+        height:62,
+        boxShadow:"0 2px 8px #9E1B1B22",
         position:"sticky", top:0, zIndex:100,
-        boxShadow:"0 1px 20px #00000044",
       }}>
-        <div style={{display:"flex",alignItems:"center",gap:20}}>
-          <span style={{
-            fontSize:17, fontWeight:900, letterSpacing:"-0.03em",
-            background:`linear-gradient(90deg,${T.txt},${T.accent})`,
-            WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent",
-          }}>METROCASA</span>
-          <div style={{width:1,height:22,background:T.border}}/>
-          <span style={{color:T.txtSub,fontSize:12,fontWeight:600}}>Recompras &amp; Transferências</span>
+        <Logo/>
+        <div style={{
+          textAlign:"center",
+          background:T.redLight,
+          border:`1px solid ${T.red}44`,
+          borderRadius:20, padding:"4px 18px",
+        }}>
+          <span style={{color:T.red,fontSize:12,fontWeight:700}}>
+            Dashboard · Recompras &amp; Transferências
+          </span>
         </div>
-        <div style={{display:"flex",gap:16,alignItems:"center"}}>
+        <div style={{display:"flex",gap:14,alignItems:"center"}}>
           {lastUpd && (
             <span style={{color:T.txtSub,fontSize:12}}>
               Atualizado às {lastUpd.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}
             </span>
           )}
           <button onClick={()=>setTick(t=>t+1)} style={{
-            background:T.accent+"22", color:T.accent,
-            border:`1px solid ${T.accent}55`, borderRadius:7,
+            background:T.red,color:"#fff",
+            border:"none", borderRadius:7,
             padding:"6px 16px", cursor:"pointer",
             fontSize:13, fontWeight:700, fontFamily:"inherit",
           }}>↻ Atualizar</button>
         </div>
       </header>
 
-      <main style={{padding:"28px 32px",maxWidth:1440,margin:"0 auto"}}>
+      <main style={{padding:"24px 32px",maxWidth:1440,margin:"0 auto"}}>
 
-        {/* ── TABS ── */}
+        {/* ── BANNER TOTAL DE PROCESSOS ── */}
         <div style={{
-          display:"flex", gap:4, background:T.bgCard,
-          padding:4, borderRadius:9, width:"fit-content", marginBottom:24,
+          background:T.bgCard,
+          border:`1px solid ${T.border}`,
+          borderRadius:12,
+          padding:"14px 24px",
+          marginBottom:24,
+          display:"flex", justifyContent:"space-between", alignItems:"center",
+          boxShadow:"0 1px 4px #00000010",
         }}>
-          <Tab id="todos"          label={`Todos (${rows.length})`}/>
-          <Tab id="recompras"      label={`Recompras (${nRec})`}/>
-          <Tab id="transferencias" label={`Transferências (${nTrf})`}/>
+          <div style={{display:"flex",gap:16,alignItems:"center",flexWrap:"wrap"}}>
+            <div style={{
+              background:T.red, color:"#fff",
+              borderRadius:20, padding:"5px 18px",
+              fontSize:13, fontWeight:800,
+            }}>
+              Total de processos: {rows.length}
+            </div>
+            <span style={{color:T.txtSub,fontSize:12}}>
+              {nRec} recompras · {nTrf} transferências
+            </span>
+          </div>
+
+          {/* Tabs no banner */}
+          <div style={{display:"flex",gap:4,background:"#f0e8e8",padding:4,borderRadius:8}}>
+            <Tab id="todos"          label="Todos"/>
+            <Tab id="recompras"      label={`Recompras (${nRec})`}/>
+            <Tab id="transferencias" label={`Transf. (${nTrf})`}/>
+          </div>
         </div>
 
         {/* ── EXPOSURE BAR ── */}
@@ -455,36 +527,38 @@ function Dashboard() {
 
         {/* ── KPIs ── */}
         <div style={{display:"flex",gap:14,marginBottom:24,flexWrap:"wrap"}}>
-          <KPICard label="Total de Casos"       value={kpis.total}              sub={`${nRec} recompras · ${nTrf} transferências`}/>
-          <KPICard label="Volume de Vendas"     value={fmtBRL(kpis.totalVendas)} accent={T.txt}/>
-          <KPICard label="Lucro Previsto"       value={fmtBRL(kpis.totalLucro)} accent={kpis.totalLucro>=0?T.success:T.danger} sub={`${kpis.positivos} c/ lucro · ${kpis.negativos} c/ prejuízo`}/>
-          <KPICard label="Total Custas Prev."   value={fmtBRL(kpis.totalCustas)} accent={T.warn}/>
-          <KPICard label="Requer Atenção"       value={alerts.length} accent={alerts.length>0?T.danger:T.success} sub="Distrato · Inconforme · Prejuízo > 15K" bg={alerts.length>0?"#3D0A10":T.bgCard}/>
+          <KPICard label="Total de Casos"     value={kpis.total}               sub={`${nRec} recompras · ${nTrf} transferências`}/>
+          <KPICard label="Volume de Vendas"   value={fmtBRL(kpis.totalVendas)}/>
+          <KPICard label="Lucro Previsto"     value={fmtBRL(kpis.totalLucro)}  color={kpis.totalLucro>=0?T.green:T.danger} sub={`${kpis.positivos} c/ lucro · ${kpis.negativos} c/ prejuízo`}/>
+          <KPICard label="Total Custas"       value={fmtBRL(kpis.totalCustas)} color={T.amber}/>
+          <KPICard label="Requer Atenção"     value={alerts.length}            color={alerts.length>0?T.danger:T.green} sub="Distrato · Inconforme · Prejuízo > 15K" alert={alerts.length>0}/>
         </div>
 
         {/* ── ALERT STRIP ── */}
         {alerts.length > 0 && (
           <div style={{
-            background:"#3D0A10", border:`1px solid ${T.danger}44`,
-            borderLeft:`4px solid ${T.danger}`, borderRadius:10,
-            padding:"12px 20px", marginBottom:24,
+            background:"#fdf0f0",
+            border:`1px solid ${T.danger}44`,
+            borderLeft:`4px solid ${T.danger}`,
+            borderRadius:10,
+            padding:"12px 20px",
+            marginBottom:24,
             display:"flex", gap:10, alignItems:"center", flexWrap:"wrap",
+            boxShadow:"0 1px 4px #00000010",
           }}>
-            <span style={{color:"#FCA5A5",fontWeight:800,fontSize:13,flexShrink:0}}>
+            <span style={{color:T.danger,fontWeight:800,fontSize:13,flexShrink:0}}>
               ⚠ {alerts.length} {alerts.length===1?"caso requer atenção":"casos requerem atenção"}:
             </span>
             <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
               {alerts.slice(0,12).map((r,i) => (
                 <span key={i} style={{
-                  background:T.danger+"22", color:"#FCA5A5",
-                  border:`1px solid ${T.danger}33`,
+                  background:T.danger+"15", color:T.danger,
+                  border:`1px solid ${T.danger}44`,
                   borderRadius:4, padding:"2px 8px",
                   fontSize:11, fontWeight:700,
                 }}>{r["CHAVE PRODUTO"]}</span>
               ))}
-              {alerts.length > 12 && (
-                <span style={{color:T.danger,fontSize:12,fontWeight:600}}>+{alerts.length-12} mais</span>
-              )}
+              {alerts.length > 12 && <span style={{color:T.danger,fontSize:12,fontWeight:600}}>+{alerts.length-12} mais</span>}
             </div>
           </div>
         )}
@@ -497,19 +571,29 @@ function Dashboard() {
         </div>
 
         {/* ── TABLE ── */}
-        <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:10,overflow:"hidden"}}>
+        <div style={{
+          background:T.bgCard,
+          border:`1px solid ${T.border}`,
+          borderRadius:10,
+          overflow:"hidden",
+          boxShadow:"0 1px 4px #00000010",
+        }}>
+          {/* table toolbar */}
           <div style={{
-            padding:"14px 20px", borderBottom:`1px solid ${T.border}`,
+            background:T.red, padding:"12px 20px",
             display:"flex", justifyContent:"space-between", alignItems:"center",
           }}>
-            <span style={{fontWeight:800,fontSize:14}}>Detalhamento por Unidade</span>
+            <span style={{color:"#fff",fontWeight:800,fontSize:13,letterSpacing:"0.02em"}}>
+              Detalhamento por Unidade
+            </span>
             <input
               value={q} onChange={e=>setQ(e.target.value)}
               placeholder="🔍  Buscar unidade, cliente, status..."
               style={{
-                background:T.bgSurf, border:`1px solid ${T.border}`,
-                borderRadius:7, padding:"7px 14px", color:T.txt,
-                fontSize:13, width:310, outline:"none", fontFamily:"inherit",
+                background:"#ffffff22", border:"1px solid #ffffff55",
+                borderRadius:7, padding:"6px 14px",
+                color:"#fff", fontSize:13, width:300,
+                outline:"none", fontFamily:"inherit",
               }}
             />
           </div>
@@ -517,15 +601,15 @@ function Dashboard() {
           <div style={{overflowX:"auto",maxHeight:520,overflowY:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse",minWidth:980,fontSize:12}}>
               <thead>
-                <tr style={{background:T.bgBase,position:"sticky",top:0,zIndex:2}}>
-                  {["#","Tipo","Unidade","Cliente","Status Débitos","Status Venda","Status Repasse","Lucro Prev."].map(h=>(
-                    <th key={h} style={{
-                      padding:"10px 14px", textAlign:"left",
-                      color:T.txtSub, fontSize:11, fontWeight:700,
-                      textTransform:"uppercase", letterSpacing:"0.06em",
-                      borderBottom:`1px solid ${T.border}`, whiteSpace:"nowrap",
-                    }}>{h}</th>
-                  ))}
+                <tr style={{position:"sticky",top:0,zIndex:2}}>
+                  <TH>#</TH>
+                  <TH>Tipo</TH>
+                  <TH>Unidade</TH>
+                  <TH>Cliente</TH>
+                  <TH>Status Débitos</TH>
+                  <TH>Status Venda</TH>
+                  <TH>Status Repasse</TH>
+                  <TH dark={true}>Lucro Prev.</TH>
                 </tr>
               </thead>
               <tbody>
@@ -533,33 +617,48 @@ function Dashboard() {
                   const lucro   = parseNum(r["PREVISÃO DE LUCRO"]);
                   const isRec   = (r["Recompra/ Transf"]||"").toUpperCase().includes("RECOMPRA");
                   const isAlert = alerts.includes(r);
-                  const rowBg   = isAlert ? "#3D0A1022" : i%2===0 ? "transparent" : "#FFFFFF04";
+                  const rowBg   = isAlert ? "#fff5f5" : i%2===0 ? "#fff" : T.bgZebra;
                   return (
                     <tr key={i}
-                      style={{background:rowBg,borderBottom:`1px solid ${T.bgSurf}`,cursor:"default"}}
-                      onMouseEnter={e=>e.currentTarget.style.background="#1A3A5C"}
+                      style={{background:rowBg,borderBottom:`1px solid ${T.border}`,cursor:"default"}}
+                      onMouseEnter={e=>e.currentTarget.style.background="#fdf0f0"}
                       onMouseLeave={e=>e.currentTarget.style.background=rowBg}
                     >
-                      <td style={{padding:"9px 14px",color:T.txtSub,fontVariantNumeric:"tabular-nums"}}>{r["N"]}</td>
-                      <td style={{padding:"9px 14px"}}>
+                      <td style={{padding:"9px 14px",color:T.txtSub,fontVariantNumeric:"tabular-nums",borderRight:`1px solid ${T.border}`,whiteSpace:"nowrap"}}>{r["N"]}</td>
+                      <td style={{padding:"9px 14px",borderRight:`1px solid ${T.border}`,whiteSpace:"nowrap"}}>
                         <span style={{
-                          background: isRec ? T.accent+"22" : T.purple+"22",
-                          color:      isRec ? T.accent       : T.purple,
-                          border:    `1px solid ${isRec?T.accent:T.purple}44`,
+                          background: isRec ? T.red+"18" : T.purple+"18",
+                          color:      isRec ? T.red : T.purple,
+                          border:    `1px solid ${isRec?T.red:T.purple}44`,
                           padding:"2px 8px", borderRadius:4, fontSize:11, fontWeight:700,
                         }}>{isRec?"Recompra":"Transf."}</span>
                       </td>
-                      <td style={{padding:"9px 14px",fontWeight:700,color:T.txt}}>{r["CHAVE PRODUTO"]}</td>
-                      <td style={{padding:"9px 14px",color:T.txtSub,maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                      <td style={{padding:"9px 14px",fontWeight:700,color:T.txt,borderRight:`1px solid ${T.border}`,whiteSpace:"nowrap"}}>{r["CHAVE PRODUTO"]}</td>
+                      <td style={{padding:"9px 14px",color:T.txtSub,maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",borderRight:`1px solid ${T.border}`}}>
                         {r["CLIENTE NOVO"]||r["CLIENTE ANTIGO"]||"—"}
                       </td>
-                      <td style={{padding:"9px 14px"}}><Badge text={catDeb(r["STATUS SOLUÇÃO DE DEBITOS"])} map={C.deb}/></td>
-                      <td style={{padding:"9px 14px"}}><Badge text={catVen(r["STATUS VENDA"])} map={C.ven}/></td>
-                      <td style={{padding:"9px 14px",color:T.txtSub,maxWidth:230,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}
-                          title={r["STATUS REPASSE"]||""}>
+                      <td style={{padding:"9px 14px",borderRight:`1px solid ${T.border}`,whiteSpace:"nowrap"}}>
+                        <Badge text={catDeb(r["STATUS SOLUÇÃO DE DEBITOS"])} map={C.deb}/>
+                      </td>
+                      <td style={{padding:"9px 14px",borderRight:`1px solid ${T.border}`,whiteSpace:"nowrap"}}>
+                        <Badge text={catVen(r["STATUS VENDA"])} map={C.ven}/>
+                      </td>
+                      <td style={{
+                        padding:"9px 14px",color:T.txtSub,
+                        maxWidth:240,overflow:"hidden",
+                        textOverflow:"ellipsis",whiteSpace:"nowrap",
+                        borderRight:`1px solid ${T.border}`,
+                      }} title={r["STATUS REPASSE"]||""}>
                         {r["STATUS REPASSE"]||"—"}
                       </td>
-                      <td style={{padding:"9px 14px",fontWeight:800,color:lucro>=0?T.success:T.danger,fontVariantNumeric:"tabular-nums"}}>
+                      <td style={{
+                        padding:"9px 14px",
+                        fontWeight:800,
+                        color: lucro>=0 ? T.green : T.danger,
+                        fontVariantNumeric:"tabular-nums",
+                        whiteSpace:"nowrap",
+                        background: isAlert ? "#fff5f5" : i%2===0 ? "#fdf8f8" : "#faf6f6",
+                      }}>
                         {fmtBRL(lucro)}
                       </td>
                     </tr>
@@ -570,13 +669,20 @@ function Dashboard() {
           </div>
 
           <div style={{
-            padding:"10px 20px", borderTop:`1px solid ${T.border}`,
+            padding:"10px 20px",
+            borderTop:`1px solid ${T.border}`,
             display:"flex", justifyContent:"space-between",
             color:T.txtSub, fontSize:12,
+            background:T.bgZebra,
           }}>
             <span>{filtered.length} de {rows.length} registros</span>
-            {q && <span style={{color:T.accent}}>{filtered.length} resultado(s) para "{q}"</span>}
+            {q && <span style={{color:T.red,fontWeight:600}}>{filtered.length} resultado(s) para "{q}"</span>}
           </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{textAlign:"center",marginTop:28,color:T.txtSub,fontSize:11}}>
+          Metrocasa Construtora · Dashboard Recompras &amp; Transferências · Dados em tempo real via Google Sheets
         </div>
       </main>
     </div>
