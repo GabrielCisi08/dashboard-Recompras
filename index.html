@@ -1,29 +1,32 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Metrocasa · Dashboard Recompras & Transferências</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Metrocasa · Dashboard Recompras</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { background: #f0eded; font-family: 'Segoe UI', -apple-system, Arial, sans-serif; }
+    html, body { background: #f2eeee; font-family: 'Segoe UI', Inter, Arial, sans-serif; color: #1a1a1a; }
     #root { min-height: 100vh; }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #f0eded; }
-    ::-webkit-scrollbar-thumb { background: #d4b8b8; border-radius: 99px; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #f2eeee; }
+    ::-webkit-scrollbar-thumb { background: #c8b4b4; border-radius: 99px; }
     ::-webkit-scrollbar-thumb:hover { background: #9E1B1B; }
-    * { scrollbar-width: thin; scrollbar-color: #d4b8b8 #f0eded; }
-    input::placeholder { color: #a89090; opacity: 1; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spin { display: inline-block; animation: spin 1.2s linear infinite; }
-    @keyframes fadein { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
-    .fadein { animation: fadein 0.35s ease both; }
+    * { scrollbar-width: thin; scrollbar-color: #c8b4b4 #f2eeee; }
+    input::placeholder { color: #bfacac; }
+    @keyframes loading {
+      0%   { opacity: 0.3; }
+      50%  { opacity: 1; }
+      100% { opacity: 0.3; }
+    }
+    .loading-pulse { animation: loading 1.4s ease-in-out infinite; }
+    @keyframes fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .fadein { animation: fadein 0.3s ease both; }
   </style>
 </head>
 <body>
@@ -31,62 +34,63 @@
 <script type="text/babel">
 const { useState, useEffect, useMemo } = React;
 
-/* ── CONFIG ─────────────────────────────────────────────────────────────── */
-const SHEET_ID  = "1h_m785gwSe6ViVHOZX0IFUZItL2N1wHsmwuYH3BBXIU";
-const DIRECT_1  = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=BASE%20GERAL`;
-const DIRECT_2  = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
+/* ─── CONFIG ─────────────────────────────────────────────────────────────── */
+const SHEET_ID = "1h_m785gwSe6ViVHOZX0IFUZItL2N1wHsmwuYH3BBXIU";
+const URL1 = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=BASE%20GERAL`;
+const URL2 = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0`;
 const FETCH_URLS = [
-  DIRECT_1,
-  DIRECT_2,
-  `https://corsproxy.io/?url=${encodeURIComponent(DIRECT_1)}`,
-  `https://api.allorigins.win/raw?url=${encodeURIComponent(DIRECT_1)}`,
-  `https://api.allorigins.win/raw?url=${encodeURIComponent(DIRECT_2)}`,
+  URL1, URL2,
+  `https://corsproxy.io/?url=${encodeURIComponent(URL1)}`,
+  `https://api.allorigins.win/raw?url=${encodeURIComponent(URL1)}`,
+  `https://api.allorigins.win/raw?url=${encodeURIComponent(URL2)}`,
 ];
 
-/* ── TOKENS — Modelo 1.0 Metrocasa ──────────────────────────────────────── */
+/* ─── TOKENS — Modelo 1.0 Metrocasa ─────────────────────────────────────── */
 const T = {
-  bgPage:   "#f0eded",
-  bgCard:   "#ffffff",
-  bgZebra:  "#faf6f6",
-  border:   "#e8dede",
-  borderMd: "#d4b8b8",
+  bg:       "#f2eeee",
+  card:     "#ffffff",
+  zebra:    "#faf6f6",
+  border:   "#e6dcdc",
   red:      "#9E1B1B",
-  redDark:  "#6B1010",
-  redLight: "#fdf0f0",
+  redDk:    "#6B1010",
+  redLt:    "#fdf5f5",
   txt:      "#1a1a1a",
-  txtSub:   "#7a6060",
+  sub:      "#7a6565",
   green:    "#1A7D1A",
   danger:   "#A32D2D",
-  amber:    "#92400e",
+  amber:    "#854d0e",
   blue:     "#1d4ed8",
-  purple:   "#6d28d9",
+  purple:   "#5b21b6",
   cyan:     "#0e7490",
   teal:     "#0f766e",
 };
 
-/* ── HELPERS ─────────────────────────────────────────────────────────────── */
-const parseNum = (v) => {
+/* ─── HELPERS ────────────────────────────────────────────────────────────── */
+const parseNum = v => {
   if (v == null) return 0;
   const s = String(v).replace(/R\$\s*/g,"").replace(/\s+/g,"").replace(/\./g,"").replace(",",".");
-  const n = parseFloat(s.trim());
+  const n = parseFloat(s);
   return isNaN(n) ? 0 : n;
 };
-const fmtBRL = (n) => {
-  const abs = Math.abs(n), sign = n < 0 ? "-" : "";
-  if (abs >= 1_000_000) return `${sign}R$ ${(abs/1_000_000).toFixed(1).replace(".",",")}M`;
-  if (abs >= 1_000)     return `${sign}R$ ${Math.round(abs/1_000).toLocaleString("pt-BR")}K`;
+
+const fmtBRL = n => {
+  const a = Math.abs(n), s = n < 0 ? "-" : "";
+  if (a >= 1_000_000) return `${s}R$ ${(a/1_000_000).toFixed(1).replace(".",",")}M`;
+  if (a >= 1_000)     return `${s}R$ ${Math.round(a/1_000).toLocaleString("pt-BR")}K`;
   return new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0}).format(n);
 };
-const pct = (a,b) => b===0 ? 0 : Math.round((a/b)*100);
 
-/* ── STATUS CATEGORIZERS ─────────────────────────────────────────────────── */
+const pct = (a,b) => b === 0 ? 0 : Math.round((a/b)*100);
+
+/* ─── CATEGORIZADORES ────────────────────────────────────────────────────── */
 const catDeb = (s="") => {
   const l = s.toLowerCase();
   if (l.includes("registrado")||l.includes("averbado")) return "Registrado / Averbado";
-  if (l.includes("registro"))  return "Em Registro";
-  if (l.includes("procura"))   return "Procuração Assinada";
+  if (l.includes("registro")) return "Em Registro";
+  if (l.includes("procura"))  return "Procuração Assinada";
   return s.trim() || "Sem Info";
 };
+
 const catVen = (s="") => {
   const u = s.toUpperCase();
   if (!s.trim()) return "Sem Status";
@@ -100,6 +104,7 @@ const catVen = (s="") => {
   if (u.includes("ESTOQUE")||u.includes("PRONTOS")) return "Estoque";
   return "Outros";
 };
+
 const catRep = (s="") => {
   const u = s.toUpperCase();
   if (!s.trim()) return "Pendente";
@@ -118,121 +123,190 @@ const catRep = (s="") => {
   return "Pendente";
 };
 
-/* ── COLOR MAPS (calibrados para fundo branco) ───────────────────────────── */
+/* ─── COLOR MAPS ─────────────────────────────────────────────────────────── */
 const C = {
   deb: {
     "Registrado / Averbado": T.green,
     "Em Registro":           T.blue,
     "Procuração Assinada":   T.purple,
-    "Sem Info":              T.txtSub,
+    "Sem Info":              T.sub,
   },
   ven: {
-    "SV Validado":          T.green,
-    "Esteira Crédito":      T.blue,
-    "Desistência":          T.danger,
-    "Proc. Judicial":       "#7f1d1d",
-    "Transf. p/ Negoc.":   T.cyan,
-    "Analisando Contrato":  T.purple,
-    "Em Análise CCA":       T.amber,
-    "Estoque":              T.txtSub,
-    "Outros":               "#9ca3af",
-    "Sem Status":           "#c4b5b5",
+    "SV Validado":          T.green,   "Esteira Crédito":      T.blue,
+    "Desistência":          T.danger,  "Proc. Judicial":       "#7f1d1d",
+    "Transf. p/ Negoc.":   T.cyan,    "Analisando Contrato":  T.purple,
+    "Em Análise CCA":       T.amber,   "Estoque":              T.sub,
+    "Outros":               "#9ca3af", "Sem Status":           "#c4b5b5",
   },
   rep: {
-    "Finalizado / Garantia": T.green,
-    "Venda Direta":          T.teal,
-    "Distrato Concluído":    T.amber,
-    "Em Distrato":           T.danger,
-    "Inconforme":            "#be123c",
-    "Assinado / Cartório":   T.blue,
-    "Em Conformidade":       T.purple,
-    "Subir p/ CEHOP":        "#4338ca",
-    "Em Negociação":         T.amber,
-    "Registrado":            T.cyan,
-    "Em Análise":            "#0369a1",
-    "Reavaliar":             "#c2410c",
-    "Pendente":              T.txtSub,
+    "Finalizado / Garantia": T.green,   "Venda Direta":         T.teal,
+    "Distrato Concluído":    T.amber,   "Em Distrato":          T.danger,
+    "Inconforme":            "#be123c", "Assinado / Cartório":  T.blue,
+    "Em Conformidade":       T.purple,  "Subir p/ CEHOP":       "#4338ca",
+    "Em Negociação":         T.amber,   "Registrado":           T.cyan,
+    "Em Análise":            "#0369a1", "Reavaliar":            "#c2410c",
+    "Pendente":              T.sub,
   },
 };
 
-/* ── UTILS ───────────────────────────────────────────────────────────────── */
 const groupCount = (arr, fn) => {
   const m = {};
   arr.forEach(r => { const k=fn(r); m[k]=(m[k]||0)+1; });
   return Object.entries(m).map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value);
 };
 
-/* ── BADGE ───────────────────────────────────────────────────────────────── */
+/* ─── ATOMS ──────────────────────────────────────────────────────────────── */
 function Badge({ text, map }) {
-  const c = map[text] || T.txtSub;
+  const c = map[text] || T.sub;
   return (
     <span style={{
       display:"inline-block",
       background: c+"18",
       color: c,
-      border:`1px solid ${c}55`,
-      borderRadius:4,
+      border:`1px solid ${c}50`,
+      borderRadius:3,
       padding:"2px 8px",
       fontSize:11,
       fontWeight:700,
       whiteSpace:"nowrap",
-      letterSpacing:"0.01em",
     }}>{text}</span>
   );
 }
 
-/* ── KPI CARD ────────────────────────────────────────────────────────────── */
-function KPICard({ label, value, sub, color=T.txt, alert=false }) {
+/* ─── LOGO ───────────────────────────────────────────────────────────────── */
+function Logo() {
   return (
-    <div style={{
-      background: alert ? "#fdf0f0" : T.bgCard,
-      border:`1px solid ${alert ? T.danger+"55" : T.border}`,
-      borderTop:`3px solid ${alert ? T.danger : T.red}`,
-      borderRadius:10,
-      padding:"16px 20px",
-      flex:1, minWidth:145,
-      boxShadow:"0 1px 4px #00000010",
-    }}>
-      <p style={{margin:"0 0 8px",color:T.txtSub,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>{label}</p>
-      <p style={{margin:0,color,fontSize:23,fontWeight:800,lineHeight:1,fontVariantNumeric:"tabular-nums"}}>{value}</p>
-      {sub && <p style={{margin:"6px 0 0",color:T.txtSub,fontSize:11}}>{sub}</p>}
+    <div style={{display:"flex",alignItems:"center",gap:10}}>
+      <div style={{
+        background: T.red,
+        width:34, height:34,
+        borderRadius:4,
+        display:"flex", alignItems:"center", justifyContent:"center",
+        color:"#fff", fontSize:17, fontWeight:900,
+        letterSpacing:"-0.04em",
+        boxShadow:`0 2px 8px ${T.red}44`,
+        flexShrink:0,
+        fontFamily:"Georgia, serif",
+      }}>M</div>
+      <div>
+        <div style={{fontSize:14,fontWeight:900,color:T.red,letterSpacing:"0.04em",lineHeight:1.1,textTransform:"uppercase"}}>Metrocasa</div>
+        <div style={{fontSize:9,color:T.sub,fontWeight:600,letterSpacing:"0.12em",textTransform:"uppercase"}}>Construtora</div>
+      </div>
     </div>
   );
 }
 
-/* ── PIPELINE CARD ───────────────────────────────────────────────────────── */
+/* ─── KPI BANNER (estilo lote PDF) ──────────────────────────────────────── */
+function KPIBanner({ kpis, nRec, nTrf, total, filtered }) {
+  const blocks = [
+    {
+      label: "Total de Processos",
+      value: total,
+      sub: `${nRec} recompras · ${nTrf} transferências`,
+      color: T.txt,
+    },
+    {
+      label: "Com Lucro",
+      value: kpis.positivos,
+      pct: pct(kpis.positivos, total) + "%",
+      sub: "do portfólio",
+      color: T.green,
+    },
+    {
+      label: "Com Prejuízo",
+      value: kpis.negativos,
+      pct: pct(kpis.negativos, total) + "%",
+      sub: "do portfólio",
+      color: T.danger,
+    },
+    {
+      label: "Volume de Vendas",
+      value: fmtBRL(kpis.totalVendas),
+      sub: "Valor nova venda — total",
+      color: T.txt,
+    },
+    {
+      label: "Lucro Previsto",
+      value: fmtBRL(kpis.totalLucro),
+      sub: `Custas: ${fmtBRL(kpis.totalCustas)}`,
+      color: kpis.totalLucro >= 0 ? T.green : T.danger,
+    },
+  ];
+
+  return (
+    <div style={{
+      background: T.card,
+      border:`1px solid ${T.border}`,
+      borderLeft:`4px solid ${T.red}`,
+      borderRadius:10,
+      overflow:"hidden",
+      marginBottom:22,
+      boxShadow:"0 1px 6px #00000010",
+    }}>
+      <div style={{display:"flex"}}>
+        {blocks.map(({label,value,pct:p,sub,color},i) => (
+          <div key={i} style={{
+            flex:1,
+            padding:"18px 16px",
+            textAlign:"center",
+            borderRight: i < blocks.length-1 ? `1px solid ${T.border}` : "none",
+          }}>
+            <div style={{color:T.sub,fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>
+              {label}
+            </div>
+            <div style={{color,fontSize:p?20:22,fontWeight:800,lineHeight:1,whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>
+              {value}
+            </div>
+            {p && (
+              <div style={{color,fontSize:13,fontWeight:700,marginTop:3}}>{p}</div>
+            )}
+            <div style={{color:T.sub,fontSize:11,marginTop:6}}>{sub}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─── PIPELINE CARD ──────────────────────────────────────────────────────── */
 function PipelineCard({ title, data, map }) {
   const total = data.reduce((s,d)=>s+d.value,0);
   return (
     <div style={{
-      background:T.bgCard,
+      background:T.card,
       border:`1px solid ${T.border}`,
       borderRadius:10,
       overflow:"hidden",
-      flex:1, minWidth:270,
-      boxShadow:"0 1px 4px #00000010",
+      flex:1, minWidth:265,
+      boxShadow:"0 1px 5px #00000010",
     }}>
-      <div style={{background:T.red,padding:"10px 18px"}}>
-        <p style={{margin:0,color:"#fff",fontSize:12,fontWeight:700,letterSpacing:"0.03em"}}>{title}</p>
+      <div style={{
+        background:T.red,
+        padding:"9px 16px",
+        borderBottom:`2px solid ${T.redDk}`,
+      }}>
+        <span style={{color:"#fff",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em"}}>
+          {title}
+        </span>
       </div>
-      <div style={{padding:"16px 18px",display:"flex",flexDirection:"column",gap:10}}>
+      <div style={{padding:"14px 16px",display:"flex",flexDirection:"column",gap:10}}>
         {data.map(({name,value}) => {
           const p = pct(value,total);
-          const c = map[name] || T.txtSub;
+          const c = map[name] || T.sub;
           return (
             <div key={name}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:4}}>
                 <span style={{color:T.txt,fontSize:12}}>{name}</span>
                 <span style={{color:c,fontSize:12,fontWeight:800,fontVariantNumeric:"tabular-nums"}}>
-                  {value}<span style={{color:T.txtSub,fontWeight:400}}> ({p}%)</span>
+                  {value}<span style={{color:T.sub,fontWeight:400,fontSize:11}}> ({p}%)</span>
                 </span>
               </div>
-              <div style={{height:5,background:"#f0e8e8",borderRadius:99,overflow:"hidden"}}>
+              <div style={{height:4,background:"#ede5e5",borderRadius:2,overflow:"hidden"}}>
                 <div style={{
                   height:"100%", width:`${p}%`,
-                  background:`linear-gradient(90deg,${c}bb,${c})`,
-                  borderRadius:99,
-                  transition:"width 0.6s cubic-bezier(.4,0,.2,1)",
+                  background:c,
+                  borderRadius:2,
+                  transition:"width 0.55s cubic-bezier(.4,0,.2,1)",
                 }}/>
               </div>
             </div>
@@ -243,74 +317,7 @@ function PipelineCard({ title, data, map }) {
   );
 }
 
-/* ── EXPOSURE BAR ────────────────────────────────────────────────────────── */
-function ExposureBar({ totalCustas, totalVendas, totalLucro }) {
-  const base    = Math.max(totalCustas, totalVendas) || 1;
-  const pctRec  = Math.min(100,(totalVendas/base)*100);
-  const isProfit = totalLucro >= 0;
-  return (
-    <div style={{
-      background:T.bgCard,
-      border:`1px solid ${T.border}`,
-      borderRadius:10,
-      overflow:"hidden",
-      marginBottom:24,
-      boxShadow:"0 1px 4px #00000010",
-    }}>
-      <div style={{background:T.redDark,padding:"10px 20px"}}>
-        <span style={{color:"#fff",fontSize:12,fontWeight:700,letterSpacing:"0.03em"}}>
-          💰  Exposição de Capital — Portfólio Consolidado
-        </span>
-      </div>
-      <div style={{padding:"16px 24px"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-          <span style={{color:T.txtSub,fontSize:12}}>Capital investido vs. retorno previsto</span>
-          <span style={{fontSize:13,fontWeight:800,color:isProfit?T.green:T.danger,fontVariantNumeric:"tabular-nums"}}>
-            {isProfit?"▲":"▼"} {fmtBRL(Math.abs(totalLucro))} {isProfit?"lucro previsto":"exposição a prejuízo"}
-          </span>
-        </div>
-        <div style={{height:12,background:"#f0e8e8",borderRadius:99,overflow:"hidden",position:"relative"}}>
-          <div style={{
-            position:"absolute",inset:0,
-            background:T.danger+"33",
-            width:"100%",
-          }}/>
-          <div style={{
-            position:"absolute",top:0,left:0,height:"100%",
-            width:`${pctRec}%`,
-            background:`linear-gradient(90deg,${T.green}88,${T.green})`,
-            borderRadius:"99px 0 0 99px",
-            transition:"width 0.8s cubic-bezier(.4,0,.2,1)",
-          }}/>
-        </div>
-        <div style={{display:"flex",justifyContent:"space-between",marginTop:8}}>
-          <span style={{color:T.green,fontSize:11,fontWeight:700}}>▶ Retorno previsto: {fmtBRL(totalVendas)}</span>
-          <span style={{color:T.danger,fontSize:11,fontWeight:700}}>Capital investido: {fmtBRL(totalCustas)}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── LOGO ────────────────────────────────────────────────────────────────── */
-function Logo() {
-  return (
-    <div style={{display:"flex",alignItems:"center",gap:8}}>
-      <div style={{
-        background:T.red, borderRadius:6,
-        width:32, height:32,
-        display:"flex", alignItems:"center", justifyContent:"center",
-        fontSize:18,
-      }}>🏠</div>
-      <div>
-        <div style={{fontSize:16,fontWeight:900,color:T.red,letterSpacing:"-0.02em",lineHeight:1}}>METROCASA</div>
-        <div style={{fontSize:10,color:T.txtSub,fontWeight:600,letterSpacing:"0.04em"}}>CONSTRUTORA</div>
-      </div>
-    </div>
-  );
-}
-
-/* ── MAIN ────────────────────────────────────────────────────────────────── */
+/* ─── MAIN ───────────────────────────────────────────────────────────────── */
 function Dashboard() {
   const [rows,    setRows]    = useState([]);
   const [loading, setLoading] = useState(true);
@@ -330,15 +337,15 @@ function Dashboard() {
           if (!res.ok) continue;
           const txt = await res.text();
           if (!txt.includes(",") || txt.trim().startsWith("<!")) continue;
-          const result = await new Promise(resolve => {
+          const result = await new Promise(resolve =>
             Papa.parse(txt, {
               header:true,
               transformHeader: h => h.replace(/^\uFEFF/,"").trim(),
               skipEmptyLines:true,
               complete: ({data}) => resolve(data.filter(r => r["N"] && !isNaN(parseInt(r["N"])))),
               error: () => resolve([]),
-            });
-          });
+            })
+          );
           if (result.length > 0 && alive) {
             setRows(result); setLastUpd(new Date()); setLoading(false); return;
           }
@@ -349,14 +356,14 @@ function Dashboard() {
     return () => { alive = false; };
   }, [tick]);
 
-  const nRec = useMemo(() => rows.filter(r=>(r["Recompra/ Transf"]||"").toUpperCase().includes("RECOMPRA")).length, [rows]);
-  const nTrf = useMemo(() => rows.length - nRec, [rows, nRec]);
+  const nRec = useMemo(() => rows.filter(r=>(r["Recompra/ Transf"]||"").toUpperCase().includes("RECOMPRA")).length,[rows]);
+  const nTrf = useMemo(() => rows.length - nRec,[rows,nRec]);
 
   const byTab = useMemo(() => {
     if (tab==="recompras")      return rows.filter(r=>(r["Recompra/ Transf"]||"").toUpperCase().includes("RECOMPRA"));
     if (tab==="transferencias") return rows.filter(r=>(r["Recompra/ Transf"]||"").toUpperCase().includes("TRANSFER"));
     return rows;
-  }, [rows, tab]);
+  },[rows,tab]);
 
   const filtered = useMemo(() => {
     if (!q.trim()) return byTab;
@@ -365,7 +372,7 @@ function Dashboard() {
       ["CHAVE PRODUTO","CLIENTE ANTIGO","CLIENTE NOVO","STATUS VENDA","STATUS REPASSE","STATUS SOLUÇÃO DE DEBITOS"]
         .some(k => (r[k]||"").toLowerCase().includes(s))
     );
-  }, [byTab, q]);
+  },[byTab,q]);
 
   const kpis = useMemo(() => {
     const sum = k => filtered.reduce((s,r)=>s+parseNum(r[k]),0);
@@ -378,238 +385,227 @@ function Dashboard() {
       positivos:   lucros.filter(v=>v>0).length,
       negativos:   lucros.filter(v=>v<0).length,
     };
-  }, [filtered]);
+  },[filtered]);
 
-  const debData = useMemo(() => groupCount(filtered, r=>catDeb(r["STATUS SOLUÇÃO DE DEBITOS"])), [filtered]);
-  const venData = useMemo(() => groupCount(filtered, r=>catVen(r["STATUS VENDA"])), [filtered]);
-  const repData = useMemo(() => groupCount(filtered, r=>catRep(r["STATUS REPASSE"])), [filtered]);
+  const debData = useMemo(()=>groupCount(filtered,r=>catDeb(r["STATUS SOLUÇÃO DE DEBITOS"])),[filtered]);
+  const venData = useMemo(()=>groupCount(filtered,r=>catVen(r["STATUS VENDA"])),[filtered]);
+  const repData = useMemo(()=>groupCount(filtered,r=>catRep(r["STATUS REPASSE"])),[filtered]);
 
-  const alerts = useMemo(() => filtered.filter(r => {
+  const alerts = useMemo(()=>filtered.filter(r=>{
     const rep = catRep(r["STATUS REPASSE"]);
     return ["Em Distrato","Inconforme","Reavaliar"].includes(rep) || parseNum(r["PREVISÃO DE LUCRO"]) < -15000;
-  }), [filtered]);
+  }),[filtered]);
 
-  /* Loading */
+  /* ── Estados de loading/erro ── */
   if (loading) return (
-    <div style={{background:T.bgPage,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Segoe UI',Arial,sans-serif"}}>
-      <div style={{textAlign:"center"}}>
-        <div className="spin" style={{fontSize:32,color:T.red,display:"block",marginBottom:14}}>◌</div>
-        <div style={{fontSize:15,color:T.txt,fontWeight:600}}>Carregando base de dados...</div>
-        <div style={{fontSize:12,color:T.txtSub,marginTop:6}}>Conectando ao Google Sheets</div>
+    <div style={{background:T.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
+      <div style={{display:"flex",gap:6}}>
+        {[0,1,2].map(i=>(
+          <div key={i} className="loading-pulse" style={{
+            width:10,height:10,borderRadius:"50%",background:T.red,
+            animationDelay:`${i*0.18}s`,
+          }}/>
+        ))}
       </div>
+      <div style={{fontSize:14,color:T.sub,fontWeight:500}}>Carregando base de dados...</div>
     </div>
   );
 
-  /* Error */
   if (err) return (
-    <div style={{background:T.bgPage,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Segoe UI',Arial,sans-serif",padding:32}}>
-      <div style={{textAlign:"center",maxWidth:520}}>
+    <div style={{background:T.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:32}}>
+      <div style={{textAlign:"center",maxWidth:500}}>
         <Logo/>
-        <div style={{color:T.danger,fontSize:16,margin:"20px 0 12px",fontWeight:800}}>⚠ Erro ao carregar planilha</div>
-        <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:10,padding:"16px 20px",marginBottom:20,textAlign:"left"}}>
-          <p style={{color:T.txt,fontSize:12,fontWeight:700,marginBottom:10}}>Checklist:</p>
-          <p style={{color:T.txtSub,fontSize:12,lineHeight:1.8}}>
-            ① Planilha compartilhada como <strong style={{color:T.red}}>"Qualquer pessoa com o link"</strong> + <strong style={{color:T.red}}>Visualizador</strong>?<br/>
-            ② Abrindo via <code>file://</code>? Use servidor local:<br/>
-            <code style={{background:"#f9f0f0",color:T.red,padding:"3px 10px",borderRadius:4,display:"inline-block",marginTop:6,fontSize:11}}>python3 -m http.server 8080</code><br/>
-            Depois acesse <code style={{color:T.blue,fontSize:11}}>http://localhost:8080</code>
+        <div style={{color:T.danger,fontSize:15,margin:"24px 0 12px",fontWeight:700}}>Erro ao carregar planilha</div>
+        <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:10,padding:"16px 20px",marginBottom:20,textAlign:"left"}}>
+          <p style={{color:T.txt,fontSize:12,fontWeight:700,marginBottom:10}}>Diagnóstico:</p>
+          <p style={{color:T.sub,fontSize:12,lineHeight:1.9}}>
+            — Planilha compartilhada como <strong style={{color:T.red}}>"Qualquer pessoa com o link"</strong> + Visualizador?<br/>
+            — Abrindo o arquivo diretamente? Execute no terminal:<br/>
+            <code style={{background:T.redLt,color:T.red,padding:"3px 10px",borderRadius:3,display:"inline-block",marginTop:6,fontSize:11}}>
+              python3 -m http.server 8080
+            </code><br/>
+            Acesse <code style={{color:T.blue,fontSize:11}}>http://localhost:8080</code>
           </p>
         </div>
         <button onClick={()=>setTick(t=>t+1)} style={{
           background:T.red,color:"#fff",border:"none",
-          padding:"10px 28px",borderRadius:8,cursor:"pointer",
-          fontFamily:"inherit",fontSize:14,fontWeight:700,
-        }}>↻ Tentar Novamente</button>
+          padding:"9px 26px",borderRadius:7,cursor:"pointer",
+          fontSize:13,fontWeight:700,fontFamily:"inherit",
+        }}>Tentar novamente</button>
       </div>
     </div>
   );
 
-  /* Tab button */
   const Tab = ({id,label}) => (
     <button onClick={()=>setTab(id)} style={{
-      padding:"7px 18px", borderRadius:7, border:"none", cursor:"pointer",
-      fontWeight:700, fontSize:13, fontFamily:"inherit",
+      padding:"6px 16px",borderRadius:6,border:"none",cursor:"pointer",
+      fontWeight:700,fontSize:12,fontFamily:"inherit",
       background: tab===id ? T.red : "transparent",
-      color:      tab===id ? "#fff" : T.txtSub,
+      color:      tab===id ? "#fff" : T.sub,
       transition:"all 0.15s",
+      letterSpacing:"0.01em",
     }}>{label}</button>
   );
 
-  /* TH style */
-  const TH = ({children, dark=false}) => (
-    <th style={{
-      padding:"10px 14px", textAlign:"left",
-      background: dark ? T.redDark : T.red,
-      color:"#fff", fontSize:11, fontWeight:700,
-      textTransform:"uppercase", letterSpacing:"0.06em",
-      whiteSpace:"nowrap", borderRight:`1px solid ${T.redDark}55`,
-    }}>{children}</th>
-  );
+  const lastUpdStr = lastUpd
+    ? lastUpd.toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})
+    : "";
 
   return (
-    <div className="fadein" style={{background:T.bgPage,minHeight:"100vh",fontFamily:"'Segoe UI',-apple-system,Arial,sans-serif",color:T.txt}}>
+    <div className="fadein" style={{background:T.bg,minHeight:"100vh",fontFamily:"'Segoe UI',Inter,Arial,sans-serif",color:T.txt}}>
 
       {/* ── HEADER ── */}
       <header style={{
-        background:T.bgCard,
+        background:T.card,
         borderBottom:`2px solid ${T.red}`,
         padding:"0 32px",
-        display:"flex", justifyContent:"space-between", alignItems:"center",
-        height:62,
-        boxShadow:"0 2px 8px #9E1B1B22",
-        position:"sticky", top:0, zIndex:100,
+        height:58,
+        display:"flex",justifyContent:"space-between",alignItems:"center",
+        position:"sticky",top:0,zIndex:100,
+        boxShadow:"0 2px 8px #9E1B1B1A",
       }}>
         <Logo/>
+
         <div style={{
-          textAlign:"center",
-          background:T.redLight,
-          border:`1px solid ${T.red}44`,
-          borderRadius:20, padding:"4px 18px",
+          background:T.redLt,
+          border:`1px solid ${T.red}30`,
+          borderRadius:20,
+          padding:"4px 16px",
         }}>
-          <span style={{color:T.red,fontSize:12,fontWeight:700}}>
-            Dashboard · Recompras &amp; Transferências
+          <span style={{color:T.red,fontSize:11,fontWeight:700,letterSpacing:"0.04em",textTransform:"uppercase"}}>
+            Recompras &amp; Transferências
           </span>
         </div>
+
         <div style={{display:"flex",gap:14,alignItems:"center"}}>
           {lastUpd && (
-            <span style={{color:T.txtSub,fontSize:12}}>
-              Atualizado às {lastUpd.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}
-            </span>
+            <span style={{color:T.sub,fontSize:11,letterSpacing:"0.01em"}}>{lastUpdStr}</span>
           )}
           <button onClick={()=>setTick(t=>t+1)} style={{
-            background:T.red,color:"#fff",
-            border:"none", borderRadius:7,
-            padding:"6px 16px", cursor:"pointer",
-            fontSize:13, fontWeight:700, fontFamily:"inherit",
-          }}>↻ Atualizar</button>
+            background:T.red,color:"#fff",border:"none",
+            borderRadius:6,padding:"6px 16px",cursor:"pointer",
+            fontSize:12,fontWeight:700,fontFamily:"inherit",letterSpacing:"0.02em",
+          }}>Atualizar</button>
         </div>
       </header>
 
       <main style={{padding:"24px 32px",maxWidth:1440,margin:"0 auto"}}>
 
-        {/* ── BANNER TOTAL DE PROCESSOS ── */}
+        {/* ── TABS ── */}
         <div style={{
-          background:T.bgCard,
+          display:"flex",gap:3,
+          background:T.card,
           border:`1px solid ${T.border}`,
-          borderRadius:12,
-          padding:"14px 24px",
-          marginBottom:24,
-          display:"flex", justifyContent:"space-between", alignItems:"center",
-          boxShadow:"0 1px 4px #00000010",
+          padding:4,borderRadius:8,
+          width:"fit-content",marginBottom:20,
+          boxShadow:"0 1px 3px #00000008",
         }}>
-          <div style={{display:"flex",gap:16,alignItems:"center",flexWrap:"wrap"}}>
-            <div style={{
-              background:T.red, color:"#fff",
-              borderRadius:20, padding:"5px 18px",
-              fontSize:13, fontWeight:800,
-            }}>
-              Total de processos: {rows.length}
-            </div>
-            <span style={{color:T.txtSub,fontSize:12}}>
-              {nRec} recompras · {nTrf} transferências
-            </span>
-          </div>
-
-          {/* Tabs no banner */}
-          <div style={{display:"flex",gap:4,background:"#f0e8e8",padding:4,borderRadius:8}}>
-            <Tab id="todos"          label="Todos"/>
-            <Tab id="recompras"      label={`Recompras (${nRec})`}/>
-            <Tab id="transferencias" label={`Transf. (${nTrf})`}/>
-          </div>
+          <Tab id="todos"          label={`Todos  (${rows.length})`}/>
+          <Tab id="recompras"      label={`Recompras  (${nRec})`}/>
+          <Tab id="transferencias" label={`Transferências  (${nTrf})`}/>
         </div>
 
-        {/* ── EXPOSURE BAR ── */}
-        <ExposureBar
-          totalCustas={kpis.totalCustas}
-          totalVendas={kpis.totalVendas}
-          totalLucro={kpis.totalLucro}
-        />
+        {/* ── KPI BANNER ── */}
+        <KPIBanner kpis={kpis} nRec={nRec} nTrf={nTrf} total={rows.length} filtered={filtered}/>
 
-        {/* ── KPIs ── */}
-        <div style={{display:"flex",gap:14,marginBottom:24,flexWrap:"wrap"}}>
-          <KPICard label="Total de Casos"     value={kpis.total}               sub={`${nRec} recompras · ${nTrf} transferências`}/>
-          <KPICard label="Volume de Vendas"   value={fmtBRL(kpis.totalVendas)}/>
-          <KPICard label="Lucro Previsto"     value={fmtBRL(kpis.totalLucro)}  color={kpis.totalLucro>=0?T.green:T.danger} sub={`${kpis.positivos} c/ lucro · ${kpis.negativos} c/ prejuízo`}/>
-          <KPICard label="Total Custas"       value={fmtBRL(kpis.totalCustas)} color={T.amber}/>
-          <KPICard label="Requer Atenção"     value={alerts.length}            color={alerts.length>0?T.danger:T.green} sub="Distrato · Inconforme · Prejuízo > 15K" alert={alerts.length>0}/>
+        {/* ── PIPELINE ── */}
+        <div style={{display:"flex",gap:16,marginBottom:20,flexWrap:"wrap"}}>
+          <PipelineCard title="Solução de Débitos" data={debData} map={C.deb}/>
+          <PipelineCard title="Status de Venda"    data={venData} map={C.ven}/>
+          <PipelineCard title="Status Repasse"     data={repData} map={C.rep}/>
         </div>
 
-        {/* ── ALERT STRIP ── */}
+        {/* ── ALERTAS ── */}
         {alerts.length > 0 && (
           <div style={{
-            background:"#fdf0f0",
-            border:`1px solid ${T.danger}44`,
+            background:T.redLt,
+            border:`1px solid ${T.danger}40`,
             borderLeft:`4px solid ${T.danger}`,
-            borderRadius:10,
-            padding:"12px 20px",
-            marginBottom:24,
-            display:"flex", gap:10, alignItems:"center", flexWrap:"wrap",
-            boxShadow:"0 1px 4px #00000010",
+            borderRadius:8,padding:"11px 18px",
+            marginBottom:20,
+            display:"flex",gap:12,alignItems:"center",flexWrap:"wrap",
+            boxShadow:"0 1px 4px #A32D2D0E",
           }}>
-            <span style={{color:T.danger,fontWeight:800,fontSize:13,flexShrink:0}}>
-              ⚠ {alerts.length} {alerts.length===1?"caso requer atenção":"casos requerem atenção"}:
+            <span style={{
+              color:T.danger,fontWeight:800,fontSize:12,
+              flexShrink:0,textTransform:"uppercase",letterSpacing:"0.05em",
+            }}>
+              ! {alerts.length} {alerts.length===1?"processo requer atenção":"processos requerem atenção"}
             </span>
-            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-              {alerts.slice(0,12).map((r,i) => (
+            <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+              {alerts.slice(0,14).map((r,i)=>(
                 <span key={i} style={{
-                  background:T.danger+"15", color:T.danger,
-                  border:`1px solid ${T.danger}44`,
-                  borderRadius:4, padding:"2px 8px",
-                  fontSize:11, fontWeight:700,
+                  background:T.danger+"14",color:T.danger,
+                  border:`1px solid ${T.danger}40`,
+                  borderRadius:3,padding:"2px 7px",
+                  fontSize:11,fontWeight:700,
                 }}>{r["CHAVE PRODUTO"]}</span>
               ))}
-              {alerts.length > 12 && <span style={{color:T.danger,fontSize:12,fontWeight:600}}>+{alerts.length-12} mais</span>}
+              {alerts.length > 14 && (
+                <span style={{color:T.danger,fontSize:11,fontWeight:600,alignSelf:"center"}}>
+                  +{alerts.length-14}
+                </span>
+              )}
             </div>
           </div>
         )}
 
-        {/* ── PIPELINE CARDS ── */}
-        <div style={{display:"flex",gap:14,marginBottom:24,flexWrap:"wrap"}}>
-          <PipelineCard title="📋  Solução de Débitos" data={debData} map={C.deb}/>
-          <PipelineCard title="🏠  Status Venda"        data={venData} map={C.ven}/>
-          <PipelineCard title="📤  Status Repasse"      data={repData} map={C.rep}/>
-        </div>
-
-        {/* ── TABLE ── */}
+        {/* ── TABELA ── */}
         <div style={{
-          background:T.bgCard,
+          background:T.card,
           border:`1px solid ${T.border}`,
-          borderRadius:10,
-          overflow:"hidden",
-          boxShadow:"0 1px 4px #00000010",
+          borderRadius:10,overflow:"hidden",
+          boxShadow:"0 1px 6px #00000010",
         }}>
-          {/* table toolbar */}
+          {/* Toolbar */}
           <div style={{
-            background:T.red, padding:"12px 20px",
-            display:"flex", justifyContent:"space-between", alignItems:"center",
+            display:"flex",justifyContent:"space-between",alignItems:"center",
+            padding:"11px 18px",
+            background:T.red,
+            borderBottom:`2px solid ${T.redDk}`,
           }}>
-            <span style={{color:"#fff",fontWeight:800,fontSize:13,letterSpacing:"0.02em"}}>
+            <span style={{color:"#fff",fontWeight:700,fontSize:12,textTransform:"uppercase",letterSpacing:"0.06em"}}>
               Detalhamento por Unidade
             </span>
             <input
               value={q} onChange={e=>setQ(e.target.value)}
-              placeholder="🔍  Buscar unidade, cliente, status..."
+              placeholder="Buscar unidade, cliente, status..."
               style={{
-                background:"#ffffff22", border:"1px solid #ffffff55",
-                borderRadius:7, padding:"6px 14px",
-                color:"#fff", fontSize:13, width:300,
-                outline:"none", fontFamily:"inherit",
+                background:"rgba(255,255,255,0.15)",
+                border:"1px solid rgba(255,255,255,0.35)",
+                borderRadius:5,padding:"6px 13px",
+                color:"#fff",fontSize:12,width:280,
+                outline:"none",fontFamily:"inherit",
               }}
             />
           </div>
 
+          {/* Table */}
           <div style={{overflowX:"auto",maxHeight:520,overflowY:"auto"}}>
-            <table style={{width:"100%",borderCollapse:"collapse",minWidth:980,fontSize:12}}>
+            <table style={{width:"100%",borderCollapse:"collapse",minWidth:960,fontSize:12}}>
               <thead>
                 <tr style={{position:"sticky",top:0,zIndex:2}}>
-                  <TH>#</TH>
-                  <TH>Tipo</TH>
-                  <TH>Unidade</TH>
-                  <TH>Cliente</TH>
-                  <TH>Status Débitos</TH>
-                  <TH>Status Venda</TH>
-                  <TH>Status Repasse</TH>
-                  <TH dark={true}>Lucro Prev.</TH>
+                  {[
+                    {label:"#",         dark:false},
+                    {label:"Tipo",      dark:false},
+                    {label:"Unidade",   dark:false},
+                    {label:"Cliente",   dark:false},
+                    {label:"Débitos",   dark:false},
+                    {label:"Venda",     dark:false},
+                    {label:"Repasse",   dark:false},
+                    {label:"Lucro Previsto", dark:true},
+                  ].map(({label,dark},i)=>(
+                    <th key={i} style={{
+                      padding:"10px 14px",
+                      background: dark ? T.redDk : T.red,
+                      color:"#fff",
+                      fontSize:10,fontWeight:700,
+                      textTransform:"uppercase",letterSpacing:"0.07em",
+                      textAlign: dark ? "right" : "left",
+                      whiteSpace:"nowrap",
+                      borderRight:`1px solid ${T.redDk}80`,
+                    }}>{label}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -617,47 +613,74 @@ function Dashboard() {
                   const lucro   = parseNum(r["PREVISÃO DE LUCRO"]);
                   const isRec   = (r["Recompra/ Transf"]||"").toUpperCase().includes("RECOMPRA");
                   const isAlert = alerts.includes(r);
-                  const rowBg   = isAlert ? "#fff5f5" : i%2===0 ? "#fff" : T.bgZebra;
+                  const rowBg   = isAlert ? "#fff5f5" : i%2===0 ? "#fff" : T.zebra;
+                  // Barra lateral de cor (estilo lote)
+                  const barColor = lucro > 0 ? T.green : lucro < 0 ? T.danger : "#e0d0d0";
+
                   return (
                     <tr key={i}
-                      style={{background:rowBg,borderBottom:`1px solid ${T.border}`,cursor:"default"}}
-                      onMouseEnter={e=>e.currentTarget.style.background="#fdf0f0"}
+                      style={{background:rowBg,borderBottom:`1px solid ${T.border}`}}
+                      onMouseEnter={e=>e.currentTarget.style.background="#fdf4f4"}
                       onMouseLeave={e=>e.currentTarget.style.background=rowBg}
                     >
-                      <td style={{padding:"9px 14px",color:T.txtSub,fontVariantNumeric:"tabular-nums",borderRight:`1px solid ${T.border}`,whiteSpace:"nowrap"}}>{r["N"]}</td>
+                      {/* Coluna # com barra lateral (flush, estilo lote) */}
+                      <td style={{
+                        padding:"9px 14px",
+                        color:T.sub,
+                        fontVariantNumeric:"tabular-nums",
+                        borderRight:`1px solid ${T.border}`,
+                        whiteSpace:"nowrap",
+                        borderLeft:`4px solid ${barColor}`,
+                      }}>{r["N"]}</td>
+
                       <td style={{padding:"9px 14px",borderRight:`1px solid ${T.border}`,whiteSpace:"nowrap"}}>
                         <span style={{
                           background: isRec ? T.red+"18" : T.purple+"18",
                           color:      isRec ? T.red : T.purple,
-                          border:    `1px solid ${isRec?T.red:T.purple}44`,
-                          padding:"2px 8px", borderRadius:4, fontSize:11, fontWeight:700,
-                        }}>{isRec?"Recompra":"Transf."}</span>
+                          border:`1px solid ${isRec?T.red:T.purple}44`,
+                          padding:"2px 8px",borderRadius:3,
+                          fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.04em",
+                        }}>
+                          {isRec ? "Recompra" : "Transf."}
+                        </span>
                       </td>
-                      <td style={{padding:"9px 14px",fontWeight:700,color:T.txt,borderRight:`1px solid ${T.border}`,whiteSpace:"nowrap"}}>{r["CHAVE PRODUTO"]}</td>
-                      <td style={{padding:"9px 14px",color:T.txtSub,maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",borderRight:`1px solid ${T.border}`}}>
+
+                      <td style={{padding:"9px 14px",fontWeight:700,color:T.txt,borderRight:`1px solid ${T.border}`,whiteSpace:"nowrap"}}>
+                        {r["CHAVE PRODUTO"]}
+                      </td>
+
+                      <td style={{
+                        padding:"9px 14px",color:T.sub,
+                        maxWidth:170,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
+                        borderRight:`1px solid ${T.border}`,
+                      }}>
                         {r["CLIENTE NOVO"]||r["CLIENTE ANTIGO"]||"—"}
                       </td>
+
                       <td style={{padding:"9px 14px",borderRight:`1px solid ${T.border}`,whiteSpace:"nowrap"}}>
                         <Badge text={catDeb(r["STATUS SOLUÇÃO DE DEBITOS"])} map={C.deb}/>
                       </td>
+
                       <td style={{padding:"9px 14px",borderRight:`1px solid ${T.border}`,whiteSpace:"nowrap"}}>
                         <Badge text={catVen(r["STATUS VENDA"])} map={C.ven}/>
                       </td>
+
                       <td style={{
-                        padding:"9px 14px",color:T.txtSub,
-                        maxWidth:240,overflow:"hidden",
-                        textOverflow:"ellipsis",whiteSpace:"nowrap",
+                        padding:"9px 14px",color:T.sub,
+                        maxWidth:240,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
                         borderRight:`1px solid ${T.border}`,
                       }} title={r["STATUS REPASSE"]||""}>
                         {r["STATUS REPASSE"]||"—"}
                       </td>
+
                       <td style={{
                         padding:"9px 14px",
                         fontWeight:800,
-                        color: lucro>=0 ? T.green : T.danger,
+                        color: lucro>0 ? T.green : lucro<0 ? T.danger : T.sub,
                         fontVariantNumeric:"tabular-nums",
                         whiteSpace:"nowrap",
-                        background: isAlert ? "#fff5f5" : i%2===0 ? "#fdf8f8" : "#faf6f6",
+                        textAlign:"right",
+                        background: i%2===0 ? "#fdf8f8" : T.zebra,
                       }}>
                         {fmtBRL(lucro)}
                       </td>
@@ -668,28 +691,37 @@ function Dashboard() {
             </table>
           </div>
 
+          {/* Footer da tabela */}
           <div style={{
-            padding:"10px 20px",
+            padding:"9px 18px",
             borderTop:`1px solid ${T.border}`,
-            display:"flex", justifyContent:"space-between",
-            color:T.txtSub, fontSize:12,
-            background:T.bgZebra,
+            display:"flex",justifyContent:"space-between",
+            background:T.zebra,
+            color:T.sub,fontSize:11,
           }}>
             <span>{filtered.length} de {rows.length} registros</span>
-            {q && <span style={{color:T.red,fontWeight:600}}>{filtered.length} resultado(s) para "{q}"</span>}
+            {q && (
+              <span style={{color:T.red,fontWeight:600}}>
+                {filtered.length} resultado(s) para "{q}"
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Footer */}
-        <div style={{textAlign:"center",marginTop:28,color:T.txtSub,fontSize:11}}>
-          Metrocasa Construtora · Dashboard Recompras &amp; Transferências · Dados em tempo real via Google Sheets
+        {/* Rodapé */}
+        <div style={{
+          textAlign:"center",marginTop:28,
+          color:T.sub,fontSize:10,
+          letterSpacing:"0.04em",textTransform:"uppercase",
+        }}>
+          Metrocasa Construtora &nbsp;·&nbsp; Recompras &amp; Transferências &nbsp;·&nbsp; Dados via Google Sheets
         </div>
       </main>
     </div>
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<Dashboard />);
+ReactDOM.createRoot(document.getElementById("root")).render(<Dashboard/>);
 </script>
 </body>
 </html>
