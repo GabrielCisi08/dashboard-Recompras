@@ -138,28 +138,34 @@ const HABITE_SE_RAW = {
   "SAO JOAQUIM": "2026-12-20"
 };
 
-// Normalize string: uppercase + strip accents
 const norm = s => String(s||"").toUpperCase()
   .normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
 
-// Build normalized lookup map
 const HABITE_SE = {};
 Object.entries(HABITE_SE_RAW).forEach(([k,v]) => { HABITE_SE[norm(k)] = v; });
 
-// Extract empreendimento from CHAVE PRODUTO ("ALTO DE PINHEIROS U-0210" → "ALTO DE PINHEIROS")
 const extractEmp = chave => norm(String(chave||"").replace(/\s+U-\d+.*$/i,""));
 
-// Check if a transferência has habite-se > 180 days ago
-const checkHabitseVencido = row => {
+// Dias desde o habite-se (null se não for transferência ou sem data)
+const diasHabitse = row => {
   const tipo = (row["Recompra/ Transf"]||"").toUpperCase();
   if (!tipo.includes("TRANSFER")) return null;
-  const empKey = extractEmp(row["CHAVE PRODUTO"]);
-  const hsDateStr = HABITE_SE[empKey];
-  if (!hsDateStr) return null;
-  const hsDate = new Date(hsDateStr);
-  const today  = new Date();
-  const diffDays = Math.floor((today - hsDate) / 86400000);
-  return diffDays > 180 ? diffDays : null;
+  const hsStr = HABITE_SE[extractEmp(row["CHAVE PRODUTO"])];
+  if (!hsStr) return null;
+  return Math.floor((new Date() - new Date(hsStr)) / 86400000);
+};
+
+// Repasse "resolvido" = assinado / registrado / finalizado
+const repasseResolvido = s => {
+  const u = String(s||"").toUpperCase();
+  return u.includes("ASSINADO") || u.includes("REGISTRADO") || u.includes("FINALIZADO");
+};
+
+// REGRA: transferência com habite-se > 180d E repasse não-resolvido → Viabilizar Recompra
+const isViabilizarRecompra = row => {
+  const dias = diasHabitse(row);
+  if (dias === null || dias <= 180) return false;
+  return !repasseResolvido(row["STATUS REPASSE"]);
 };
 
 /* ─── HELPERS ────────────────────────────────────────────────────────────── */
@@ -184,7 +190,6 @@ const catDeb = (s="") => {
   if(l.includes("procura"))  return "Procuração Assinada";
   return s.trim()||"Sem Info";
 };
-
 const catVen = (s="") => {
   const u=s.toUpperCase();
   if(!s.trim()) return "Sem Status";
@@ -201,7 +206,6 @@ const catVen = (s="") => {
   if(u.includes("NA SV"))           return "Sem Status Comercial";
   return "Em Negociação";
 };
-
 const catRep = (s="") => {
   const u=s.toUpperCase();
   if(!s.trim()) return "Pendente";
@@ -220,9 +224,12 @@ const catRep = (s="") => {
   return "Pendente";
 };
 
+const VIABILIZAR = "Viabilizar Recompra";
+
 /* ─── COLOR MAPS ─────────────────────────────────────────────────────────── */
 const C = {
-  deb: {"Registrado / Averbado":T.green,"Em Registro":T.blue,"Procuração Assinada":T.purple,"Sem Info":T.sub},
+  deb: {"Registrado / Averbado":T.green,"Em Registro":T.blue,"Procuração Assinada":T.purple,
+    "Sem Info":T.sub, [VIABILIZAR]:T.red},
   ven: {
     "SV Validado":T.green, "Esteira Crédito":T.blue, "Desistência":T.danger,
     "Proc. Judicial":"#7f1d1d", "Transf. Liberada":T.cyan,
@@ -261,11 +268,10 @@ function Logo() {
 }
 
 /* ─── KPI BANNER ─────────────────────────────────────────────────────────── */
-function KPIBanner({kpis,nRec,nTrf,total}) {
+function KPIBanner({kpis,nRec,nTrf,total,nViab}) {
   const blocks = [
     {label:"Total de Processos", value:total, sub:`${nRec} recompras · ${nTrf} transf.`, color:T.txt},
-    {label:"Com Lucro",   value:kpis.positivos, pct:pct(kpis.positivos,total)+"%", sub:"do portfólio", color:T.green},
-    {label:"Com Prejuízo",value:kpis.negativos, pct:pct(kpis.negativos,total)+"%", sub:"do portfólio", color:T.danger},
+    {label:"Viabilizar Recompra", value:nViab, sub:"Transf. habite-se > 180d", color:T.red},
     {label:"Volume de Vendas",  value:fmtBRL(kpis.totalVendas),  sub:"Valor nova venda — total", color:T.txt},
     {label:"Lucro Previsto",    value:fmtBRL(kpis.totalLucro),   sub:`Custas: ${fmtBRL(kpis.totalCustas)}`,
       color:kpis.totalLucro>=0?T.green:T.danger},
@@ -274,14 +280,13 @@ function KPIBanner({kpis,nRec,nTrf,total}) {
     <div style={{background:T.card,border:`1px solid ${T.border}`,borderLeft:`4px solid ${T.red}`,
         borderRadius:10,overflow:"hidden",marginBottom:22,boxShadow:"0 1px 6px #00000010"}}>
       <div style={{display:"flex"}}>
-        {blocks.map(({label,value,pct:p,sub,color},i) => (
+        {blocks.map(({label,value,sub,color},i) => (
           <div key={i} style={{flex:1,padding:"18px 16px",textAlign:"center",
               borderRight:i<blocks.length-1?`1px solid ${T.border}`:"none"}}>
             <div style={{color:T.sub,fontSize:10,fontWeight:700,textTransform:"uppercase",
                 letterSpacing:"0.08em",marginBottom:8}}>{label}</div>
-            <div style={{color,fontSize:p?20:22,fontWeight:800,lineHeight:1,
+            <div style={{color,fontSize:22,fontWeight:800,lineHeight:1,
                 whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>{value}</div>
-            {p && <div style={{color,fontSize:13,fontWeight:700,marginTop:3}}>{p}</div>}
             <div style={{color:T.sub,fontSize:11,marginTop:6}}>{sub}</div>
           </div>
         ))}
@@ -322,135 +327,15 @@ function PipelineCard({title,data,map}) {
   );
 }
 
-/* ─── NOTIFICATION BELL ──────────────────────────────────────────────────── */
-function NotificationBell({count,open,onClick}) {
-  return (
-    <button onClick={onClick} style={{position:"relative",background:open?T.redLt:"transparent",
-        border:`1px solid ${open?T.red+"50":T.border}`,borderRadius:8,
-        width:38,height:38,cursor:"pointer",display:"flex",alignItems:"center",
-        justifyContent:"center",transition:"all 0.15s",padding:0}}
-      onMouseEnter={e=>{if(!open)e.currentTarget.style.background=T.redLt;}}
-      onMouseLeave={e=>{if(!open)e.currentTarget.style.background="transparent";}}>
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none"
-        stroke={count>0?T.red:T.sub} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-      </svg>
-      {count>0 && (
-        <span style={{position:"absolute",top:-5,right:-5,background:T.red,color:"#fff",
-            minWidth:18,height:18,borderRadius:9,fontSize:10,fontWeight:800,
-            display:"flex",alignItems:"center",justifyContent:"center",
-            padding:"0 5px",border:"2px solid #fff",fontVariantNumeric:"tabular-nums"}}>
-          {count>99?"99+":count}
-        </span>
-      )}
-    </button>
-  );
-}
-
-/* ─── ALERT DROPDOWN ─────────────────────────────────────────────────────── */
-function AlertDropdown({habitseGroups,processoGroups,onPickEmp,activeEmp,activeType,onClose}) {
-  const [section,setSection] = useState(
-    habitseGroups.length>0 ? "habitse" : "processo"
-  );
-  const nHab = habitseGroups.reduce((s,g)=>s+g.items.length,0);
-  const nPro = processoGroups.reduce((s,g)=>s+g.items.length,0);
-  const groups = section==="habitse" ? habitseGroups : processoGroups;
-  const color  = section==="habitse" ? T.amber : T.danger;
-
-  const SecTab = ({id,label,n,c}) => (
-    <button onClick={()=>setSection(id)} style={{flex:1,padding:"10px 8px",border:"none",
-        cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:11,
-        textTransform:"uppercase",letterSpacing:"0.04em",
-        background: section===id ? "#fff" : "transparent",
-        color: section===id ? c : T.sub,
-        borderBottom: section===id ? `2px solid ${c}` : "2px solid transparent",
-        transition:"all 0.15s"}}>
-      {label} <span style={{background:c+"20",color:c,borderRadius:10,padding:"1px 7px",
-        fontSize:10,marginLeft:3,fontVariantNumeric:"tabular-nums"}}>{n}</span>
-    </button>
-  );
-
-  return (
-    <>
-      {/* backdrop */}
-      <div onClick={onClose} style={{position:"fixed",inset:0,zIndex:200}}/>
-      {/* panel */}
-      <div className="fadein" style={{position:"absolute",top:48,right:0,width:380,
-          background:"#fff",border:`1px solid ${T.border}`,borderRadius:10,
-          boxShadow:"0 12px 40px rgba(0,0,0,0.18)",zIndex:201,overflow:"hidden"}}>
-        {/* header */}
-        <div style={{padding:"12px 16px",borderBottom:`1px solid ${T.border}`,
-            display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span style={{fontSize:13,fontWeight:800,color:T.txt}}>Central de Alertas</span>
-          <span style={{color:T.sub,fontSize:11}}>{nHab+nPro} no total</span>
-        </div>
-        {/* section tabs */}
-        <div style={{display:"flex",background:T.zebra,borderBottom:`1px solid ${T.border}`}}>
-          <SecTab id="habitse"  label="Habite-se"  n={nHab} c={T.amber}/>
-          <SecTab id="processo" label="Atenção"    n={nPro} c={T.danger}/>
-        </div>
-        {/* body */}
-        <div style={{maxHeight:340,overflowY:"auto",padding:"8px"}}>
-          {groups.length===0 ? (
-            <div style={{padding:"28px 16px",textAlign:"center",color:T.sub,fontSize:12}}>
-              Nenhum alerta nesta categoria.
-            </div>
-          ) : groups.map(g => {
-            const active = activeType===section && activeEmp===g.emp;
-            return (
-              <button key={g.emp}
-                onClick={()=>onPickEmp(section, active?null:g.emp)}
-                style={{width:"100%",display:"flex",alignItems:"center",
-                  justifyContent:"space-between",gap:10,
-                  background: active ? color+"12" : "transparent",
-                  border:`1px solid ${active?color+"50":"transparent"}`,
-                  borderRadius:7,padding:"10px 12px",cursor:"pointer",
-                  fontFamily:"inherit",transition:"all 0.12s",marginBottom:2,textAlign:"left"}}
-                onMouseEnter={e=>{if(!active)e.currentTarget.style.background=T.zebra;}}
-                onMouseLeave={e=>{if(!active)e.currentTarget.style.background="transparent";}}>
-                <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <span style={{width:8,height:8,borderRadius:"50%",background:color,flexShrink:0}}/>
-                  <div>
-                    <div style={{color:T.txt,fontSize:12,fontWeight:700}}>{g.empLabel}</div>
-                    {section==="habitse" && (
-                      <div style={{color:T.sub,fontSize:10,marginTop:1}}>vencido há {g.maxDias} dias</div>
-                    )}
-                  </div>
-                </div>
-                <span style={{background:color+"18",color,borderRadius:20,
-                    padding:"2px 10px",fontSize:11,fontWeight:800,flexShrink:0,
-                    fontVariantNumeric:"tabular-nums"}}>
-                  {g.items.length} un.
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        {/* footer hint */}
-        <div style={{padding:"9px 16px",borderTop:`1px solid ${T.border}`,
-            background:T.zebra,color:T.sub,fontSize:10,textAlign:"center"}}>
-          Clique em um empreendimento para filtrar a tabela
-        </div>
-      </div>
-    </>
-  );
-}
-
 /* ─── SECTION HEADER ROW ─────────────────────────────────────────────────── */
 function SectionRow({label,count,isRec}) {
   const c = isRec ? T.red : T.purple;
   return (
     <tr>
-      <td colSpan={7} style={{
-        padding:"7px 14px",
-        background: isRec ? "#fdf0f0" : "#f5f0fd",
-        borderBottom:`1px solid ${T.border}`,
-        borderTop:`2px solid ${c}`,
-      }}>
-        <span style={{color:c,fontSize:11,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.08em"}}>
-          {label}
-        </span>
+      <td colSpan={7} style={{padding:"7px 14px",
+          background: isRec ? "#fdf0f0" : "#f5f0fd",
+          borderBottom:`1px solid ${T.border}`,borderTop:`2px solid ${c}`}}>
+        <span style={{color:c,fontSize:11,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.08em"}}>{label}</span>
         <span style={{color:T.sub,fontSize:11,fontWeight:400,marginLeft:10}}>
           {count} {count===1?"processo":"processos"}
         </span>
@@ -468,9 +353,6 @@ function Dashboard() {
   const [tab,     setTab]     = useState("todos");
   const [q,       setQ]       = useState("");
   const [tick,    setTick]    = useState(0);
-  const [bellOpen,   setBellOpen]   = useState(false);
-  const [activeType, setActiveType] = useState(null);  // "habitse" | "processo" | null
-  const [activeEmp,  setActiveEmp]  = useState(null);  // empreendimento p/ filtrar tabela
 
   useEffect(()=>{
     let alive=true;
@@ -501,6 +383,7 @@ function Dashboard() {
   const isRec = r => (r["Recompra/ Transf"]||"").toUpperCase().includes("RECOMPRA");
   const nRec  = useMemo(()=>rows.filter(isRec).length,[rows]);
   const nTrf  = useMemo(()=>rows.length-nRec,[rows,nRec]);
+  const nViab = useMemo(()=>rows.filter(isViabilizarRecompra).length,[rows]);
 
   const byTab = useMemo(()=>{
     if(tab==="recompras")      return rows.filter(isRec);
@@ -525,54 +408,16 @@ function Dashboard() {
       positivos:lucros.filter(v=>v>0).length,negativos:lucros.filter(v=>v<0).length};
   },[filtered]);
 
-  const debData=useMemo(()=>groupCount(filtered,r=>catDeb(r["STATUS SOLUÇÃO DE DEBITOS"])),[filtered]);
-  const venData=useMemo(()=>groupCount(filtered,r=>catVen(r["STATUS VENDA"])),[filtered]);
-  const repData=useMemo(()=>groupCount(filtered,r=>catRep(r["STATUS REPASSE"])),[filtered]);
+  // Pipeline: Débitos respeita a regra Viabilizar Recompra
+  const debData=useMemo(()=>groupCount(filtered,r=>isViabilizarRecompra(r)?VIABILIZAR:catDeb(r["STATUS SOLUÇÃO DE DEBITOS"])),[filtered]);
+  // Venda e Repasse: casos viabilizar saem da contagem (status em branco)
+  const venData=useMemo(()=>groupCount(filtered.filter(r=>!isViabilizarRecompra(r)),r=>catVen(r["STATUS VENDA"])),[filtered]);
+  const repData=useMemo(()=>groupCount(filtered.filter(r=>!isViabilizarRecompra(r)),r=>catRep(r["STATUS REPASSE"])),[filtered]);
 
-  // Alerts: distrato/inconforme
-  const processAlerts = useMemo(()=>filtered.filter(r=>{
-    const rep=catRep(r["STATUS REPASSE"]);
-    return ["Em Distrato","Inconforme","Reavaliar"].includes(rep);
-  }),[filtered]);
-
-  // Habite-se vencido (> 180 dias)
-  const habitseAlerts = useMemo(()=>
-    filtered.map(r=>({row:r,dias:checkHabitseVencido(r)})).filter(x=>x.dias!==null)
-  ,[filtered]);
-
-  // Empreendimento label (Title Case)
-  const empLabel = emp => emp.split(" ").map(w=>w.length>2?w[0]+w.slice(1).toLowerCase():w).join(" ");
-
-  // Group alerts by empreendimento
-  const groupByEmp = (list,getDias) => {
-    const m={};
-    list.forEach(x=>{
-      const r=x.row||x;
-      const emp=extractEmp(r["CHAVE PRODUTO"]);
-      if(!m[emp]) m[emp]={emp,empLabel:empLabel(emp),items:[],maxDias:0};
-      m[emp].items.push(r);
-      if(getDias){const d=getDias(x); if(d>m[emp].maxDias)m[emp].maxDias=d;}
-    });
-    return Object.values(m).sort((a,b)=>b.items.length-a.items.length);
-  };
-
-  const habitseGroups  = useMemo(()=>groupByEmp(habitseAlerts,x=>x.dias),[habitseAlerts]);
-  const processoGroups = useMemo(()=>groupByEmp(processAlerts,null),[processAlerts]);
-
-  // When an alert is active + emp picked, the table filters to those units
-  const alertFilterKeys = useMemo(()=>{
-    if(!activeType||!activeEmp) return null;
-    const src = activeType==="habitse" ? habitseAlerts.map(x=>x.row) : processAlerts;
-    return new Set(src.filter(r=>extractEmp(r["CHAVE PRODUTO"])===activeEmp).map(r=>r["N"]));
-  },[activeType,activeEmp,habitseAlerts,processAlerts]);
-
-  // Grouped rows for table
   const tableRows = useMemo(()=>{
-    // If an alert+emp is active, table shows only those units (flat, no section headers)
-    const base = alertFilterKeys ? filtered.filter(r=>alertFilterKeys.has(r["N"])) : filtered;
-    if(tab!=="todos"||alertFilterKeys) return base.map(r=>({type:"data",row:r}));
-    const recs=base.filter(isRec);
-    const trfs=base.filter(r=>!isRec(r));
+    if(tab!=="todos") return filtered.map(r=>({type:"data",row:r}));
+    const recs=filtered.filter(isRec);
+    const trfs=filtered.filter(r=>!isRec(r));
     const result=[];
     if(recs.length>0){
       result.push({type:"header",label:"Recompras",count:recs.length,isRec:true});
@@ -583,9 +428,8 @@ function Dashboard() {
       trfs.forEach(r=>result.push({type:"data",row:r}));
     }
     return result;
-  },[filtered,tab,alertFilterKeys]);
+  },[filtered,tab]);
 
-  /* loading */
   if(loading) return (
     <div style={{background:T.bg,minHeight:"100vh",display:"flex",alignItems:"center",
         justifyContent:"center",flexDirection:"column",gap:16}}>
@@ -621,15 +465,6 @@ function Dashboard() {
     </div>
   );
 
-  const handlePickEmp = (type,emp) => {
-    setActiveType(emp?type:null);
-    setActiveEmp(emp);
-    setBellOpen(false);  // fecha o dropdown ao filtrar
-  };
-  const clearAlertFilter = () => { setActiveType(null); setActiveEmp(null); };
-
-  const totalAlerts = habitseAlerts.length + processAlerts.length;
-
   const Tab=({id,label})=>(
     <button onClick={()=>setTab(id)} style={{padding:"6px 16px",borderRadius:6,border:"none",
         cursor:"pointer",fontWeight:700,fontSize:12,fontFamily:"inherit",
@@ -658,16 +493,6 @@ function Dashboard() {
         </div>
         <div style={{display:"flex",gap:14,alignItems:"center"}}>
           {lastUpd&&<span style={{color:T.sub,fontSize:11}}>{lastUpdStr}</span>}
-          <div style={{position:"relative"}}>
-            <NotificationBell count={totalAlerts} open={bellOpen}
-              onClick={()=>setBellOpen(o=>!o)}/>
-            {bellOpen && (
-              <AlertDropdown
-                habitseGroups={habitseGroups} processoGroups={processoGroups}
-                onPickEmp={handlePickEmp} activeEmp={activeEmp} activeType={activeType}
-                onClose={()=>setBellOpen(false)}/>
-            )}
-          </div>
           <button onClick={()=>setTick(t=>t+1)} style={{background:T.red,color:"#fff",border:"none",
               borderRadius:6,padding:"6px 16px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit"}}>
             Atualizar</button>
@@ -684,8 +509,8 @@ function Dashboard() {
           <Tab id="transferencias" label={`Transferências  (${nTrf})`}/>
         </div>
 
-        {/* KPI BANNER (com alertas clicáveis integrados) */}
-        <KPIBanner kpis={kpis} nRec={nRec} nTrf={nTrf} total={rows.length}/>
+        {/* KPI BANNER */}
+        <KPIBanner kpis={kpis} nRec={nRec} nTrf={nTrf} total={rows.length} nViab={nViab}/>
 
         {/* PIPELINE */}
         <div style={{display:"flex",gap:16,marginBottom:20,flexWrap:"wrap"}}>
@@ -699,20 +524,9 @@ function Dashboard() {
             overflow:"hidden",boxShadow:"0 1px 6px #00000010"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
               padding:"11px 18px",background:T.red,borderBottom:`2px solid ${T.redDk}`}}>
-            <div style={{display:"flex",alignItems:"center",gap:12}}>
-              <span style={{color:"#fff",fontWeight:700,fontSize:12,textTransform:"uppercase",letterSpacing:"0.06em"}}>
-                Detalhamento por Unidade
-              </span>
-              {alertFilterKeys && (
-                <span onClick={clearAlertFilter}
-                  style={{display:"inline-flex",alignItems:"center",gap:6,
-                    background:"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.4)",
-                    borderRadius:20,padding:"3px 12px",cursor:"pointer",
-                    color:"#fff",fontSize:11,fontWeight:700}}>
-                  {activeType==="habitse"?"Habite-se":"Atenção"}: {activeEmp?empLabel(activeEmp):""} · {alertFilterKeys.size} un. ✕
-                </span>
-              )}
-            </div>
+            <span style={{color:"#fff",fontWeight:700,fontSize:12,textTransform:"uppercase",letterSpacing:"0.06em"}}>
+              Detalhamento por Unidade
+            </span>
             <input value={q} onChange={e=>setQ(e.target.value)}
               placeholder="Buscar unidade, cliente, status..."
               style={{background:"rgba(255,255,255,0.15)",border:"1px solid rgba(255,255,255,0.35)",
@@ -724,15 +538,7 @@ function Dashboard() {
             <table style={{width:"100%",borderCollapse:"collapse",minWidth:880,fontSize:12}}>
               <thead>
                 <tr style={{position:"sticky",top:0,zIndex:2}}>
-                  {[
-                    {label:"#"},
-                    {label:"Tipo"},
-                    {label:"Unidade"},
-                    {label:"Cliente"},
-                    {label:"Débitos"},
-                    {label:"Venda"},
-                    {label:"Repasse"},
-                  ].map(({label},i)=>(
+                  {["#","Tipo","Unidade","Cliente","Débitos","Venda","Repasse"].map((label,i)=>(
                     <th key={i} style={{padding:"10px 14px",background:T.red,color:"#fff",
                         fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",
                         textAlign:"left",whiteSpace:"nowrap",borderRight:`1px solid ${T.redDk}80`}}>
@@ -748,10 +554,9 @@ function Dashboard() {
                   }
                   const r=item.row;
                   const rec=isRec(r);
-                  const hsAlert=checkHabitseVencido(r);
-                  const isAlert=processAlerts.includes(r)||hsAlert!==null;
+                  const viab=isViabilizarRecompra(r);
                   dataIdx++;
-                  const rowBg=isAlert?"#fff8f0":(dataIdx%2===0?T.zebra:"#fff");
+                  const rowBg=viab?"#fdf0f0":(dataIdx%2===0?T.zebra:"#fff");
                   return (
                     <tr key={idx} style={{background:rowBg,borderBottom:`1px solid ${T.border}`}}
                       onMouseEnter={e=>e.currentTarget.style.background="#fdf4f4"}
@@ -770,28 +575,23 @@ function Dashboard() {
                       <td style={{padding:"9px 14px",fontWeight:700,color:T.txt,
                           borderRight:`1px solid ${T.border}`,whiteSpace:"nowrap"}}>
                         {r["CHAVE PRODUTO"]}
-                        {hsAlert!==null&&(
-                          <span style={{marginLeft:8,background:T.amber+"18",color:T.amber,
-                              border:`1px solid ${T.amber}50`,borderRadius:3,
-                              padding:"1px 6px",fontSize:10,fontWeight:700,verticalAlign:"middle"}}>
-                            Hab. {hsAlert}d
-                          </span>
-                        )}
                       </td>
                       <td style={{padding:"9px 14px",color:T.sub,maxWidth:160,overflow:"hidden",
                           textOverflow:"ellipsis",whiteSpace:"nowrap",borderRight:`1px solid ${T.border}`}}>
                         {r["CLIENTE NOVO"]||r["CLIENTE ANTIGO"]||"—"}
                       </td>
                       <td style={{padding:"9px 14px",borderRight:`1px solid ${T.border}`,whiteSpace:"nowrap"}}>
-                        <Badge text={catDeb(r["STATUS SOLUÇÃO DE DEBITOS"])} map={C.deb}/>
+                        {viab
+                          ? <Badge text={VIABILIZAR} map={C.deb}/>
+                          : <Badge text={catDeb(r["STATUS SOLUÇÃO DE DEBITOS"])} map={C.deb}/>}
                       </td>
                       <td style={{padding:"9px 14px",borderRight:`1px solid ${T.border}`,whiteSpace:"nowrap"}}>
-                        <Badge text={catVen(r["STATUS VENDA"])} map={C.ven}/>
+                        {viab ? <span style={{color:T.sub}}>—</span> : <Badge text={catVen(r["STATUS VENDA"])} map={C.ven}/>}
                       </td>
                       <td style={{padding:"9px 14px",color:T.sub,maxWidth:240,overflow:"hidden",
                           textOverflow:"ellipsis",whiteSpace:"nowrap"}}
-                        title={r["STATUS REPASSE"]||""}>
-                        {r["STATUS REPASSE"]||"—"}
+                        title={viab?"":(r["STATUS REPASSE"]||"")}>
+                        {viab ? "—" : (r["STATUS REPASSE"]||"—")}
                       </td>
                     </tr>
                   );
