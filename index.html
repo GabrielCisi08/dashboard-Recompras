@@ -485,20 +485,56 @@ function Dashboard() {
         fontFamily:"'Segoe UI',Inter,Arial,sans-serif",color:T.txt}}>
 
       {/* HEADER */}
-      <header style={{background:T.card,borderBottom:`2px solid ${T.red}`,padding:"0 32px",
-          height:60,display:"flex",justifyContent:"space-between",alignItems:"center",
-          position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 8px #9E1B1B1A"}}>
-        <Logo/>
-        <div style={{background:T.redLt,border:`1px solid ${T.red}30`,borderRadius:20,padding:"4px 16px"}}>
-          <span style={{color:T.red,fontSize:11,fontWeight:700,letterSpacing:"0.04em",textTransform:"uppercase"}}>
-            Recompras &amp; Transferências
-          </span>
+      <header style={{background:T.card,borderBottom:`1px solid ${T.border}`,padding:"0 28px",
+          height:64,display:"flex",justifyContent:"space-between",alignItems:"center",
+          position:"sticky",top:0,zIndex:100,
+          boxShadow:"0 1px 0 0 #9E1B1B, 0 4px 16px rgba(158,27,27,0.06)"}}>
+
+        {/* Esquerda: logo + título */}
+        <div style={{display:"flex",alignItems:"center",gap:18}}>
+          <Logo/>
+          <div style={{width:1,height:28,background:T.border}}/>
+          <div>
+            <div style={{fontSize:13,fontWeight:800,color:T.txt,letterSpacing:"-0.01em",lineHeight:1.2}}>
+              Recompras &amp; Transferências
+            </div>
+            <div style={{fontSize:10.5,color:T.sub,fontWeight:500,letterSpacing:"0.02em",marginTop:1}}>
+              Painel executivo · Pipeline consolidado
+            </div>
+          </div>
         </div>
-        <div style={{display:"flex",gap:14,alignItems:"center"}}>
-          {lastUpd&&<span style={{color:T.sub,fontSize:11}}>{lastUpdStr}</span>}
-          <button onClick={()=>setTick(t=>t+1)} style={{background:T.red,color:"#fff",border:"none",
-              borderRadius:6,padding:"6px 16px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit"}}>
-            Atualizar</button>
+
+        {/* Direita: status de atualização + ação */}
+        <div style={{display:"flex",alignItems:"center",gap:18}}>
+          {lastUpd && (
+            <div style={{display:"flex",alignItems:"center",gap:7}}>
+              <span style={{width:7,height:7,borderRadius:"50%",background:T.green,
+                  boxShadow:`0 0 0 3px ${T.green}22`,flexShrink:0}}/>
+              <div style={{textAlign:"right",lineHeight:1.25}}>
+                <div style={{fontSize:9,color:T.sub,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em"}}>
+                  Atualizado
+                </div>
+                <div style={{fontSize:11,color:T.txt,fontWeight:600,fontVariantNumeric:"tabular-nums"}}>
+                  {lastUpdStr}
+                </div>
+              </div>
+            </div>
+          )}
+          <button onClick={()=>setTick(t=>t+1)}
+            style={{display:"flex",alignItems:"center",gap:7,
+              background:T.red,color:"#fff",border:"none",borderRadius:7,
+              padding:"8px 18px",cursor:"pointer",fontSize:12.5,fontWeight:700,
+              fontFamily:"inherit",letterSpacing:"0.01em",
+              boxShadow:`0 2px 8px ${T.red}33`,transition:"all 0.15s"}}
+            onMouseEnter={e=>{e.currentTarget.style.background=T.redDk;e.currentTarget.style.boxShadow=`0 3px 12px ${T.red}44`;}}
+            onMouseLeave={e=>{e.currentTarget.style.background=T.red;e.currentTarget.style.boxShadow=`0 2px 8px ${T.red}33`;}}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff"
+              strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+              <path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+            </svg>
+            Atualizar
+          </button>
         </div>
       </header>
 
