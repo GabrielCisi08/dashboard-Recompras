@@ -261,64 +261,30 @@ function Logo() {
 }
 
 /* ─── KPI BANNER ─────────────────────────────────────────────────────────── */
-function KPIBanner({kpis,nRec,nTrf,total,nHabitse,nProcesso,activeAlert,onToggleAlert}) {
-  const metrics = [
+function KPIBanner({kpis,nRec,nTrf,total}) {
+  const blocks = [
     {label:"Total de Processos", value:total, sub:`${nRec} recompras · ${nTrf} transf.`, color:T.txt},
+    {label:"Com Lucro",   value:kpis.positivos, pct:pct(kpis.positivos,total)+"%", sub:"do portfólio", color:T.green},
+    {label:"Com Prejuízo",value:kpis.negativos, pct:pct(kpis.negativos,total)+"%", sub:"do portfólio", color:T.danger},
     {label:"Volume de Vendas",  value:fmtBRL(kpis.totalVendas),  sub:"Valor nova venda — total", color:T.txt},
     {label:"Lucro Previsto",    value:fmtBRL(kpis.totalLucro),   sub:`Custas: ${fmtBRL(kpis.totalCustas)}`,
       color:kpis.totalLucro>=0?T.green:T.danger},
-  ];
-  const alerts = [
-    {id:"habitse",  label:"Habite-se Vencido", value:nHabitse,  sub:"Transf. > 180 dias",            color:T.amber},
-    {id:"processo", label:"Requer Atenção",    value:nProcesso, sub:"Distrato · Inconforme · Reaval.", color:T.danger},
   ];
   return (
     <div style={{background:T.card,border:`1px solid ${T.border}`,borderLeft:`4px solid ${T.red}`,
         borderRadius:10,overflow:"hidden",marginBottom:22,boxShadow:"0 1px 6px #00000010"}}>
       <div style={{display:"flex"}}>
-        {metrics.map(({label,value,sub,color},i) => (
+        {blocks.map(({label,value,pct:p,sub,color},i) => (
           <div key={i} style={{flex:1,padding:"18px 16px",textAlign:"center",
-              borderRight:`1px solid ${T.border}`}}>
+              borderRight:i<blocks.length-1?`1px solid ${T.border}`:"none"}}>
             <div style={{color:T.sub,fontSize:10,fontWeight:700,textTransform:"uppercase",
                 letterSpacing:"0.08em",marginBottom:8}}>{label}</div>
-            <div style={{color,fontSize:22,fontWeight:800,lineHeight:1,
+            <div style={{color,fontSize:p?20:22,fontWeight:800,lineHeight:1,
                 whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>{value}</div>
+            {p && <div style={{color,fontSize:13,fontWeight:700,marginTop:3}}>{p}</div>}
             <div style={{color:T.sub,fontSize:11,marginTop:6}}>{sub}</div>
           </div>
         ))}
-        {alerts.map(({id,label,value,sub,color},i) => {
-          const active = activeAlert===id;
-          const hasItems = value>0;
-          return (
-            <div key={id}
-              onClick={()=>hasItems&&onToggleAlert(id)}
-              style={{flex:1,padding:"18px 16px",textAlign:"center",
-                borderRight:i<alerts.length-1?`1px solid ${T.border}`:"none",
-                cursor:hasItems?"pointer":"default",
-                background: active ? color+"12" : (hasItems&&value>0 ? color+"06" : "transparent"),
-                borderTop: active ? `2px solid ${color}` : "2px solid transparent",
-                transition:"all 0.15s", position:"relative"}}
-              onMouseEnter={e=>{if(hasItems&&!active)e.currentTarget.style.background=color+"0E";}}
-              onMouseLeave={e=>{if(!active)e.currentTarget.style.background=hasItems?color+"06":"transparent";}}>
-              <div style={{color:hasItems?color:T.sub,fontSize:10,fontWeight:700,textTransform:"uppercase",
-                  letterSpacing:"0.08em",marginBottom:8,display:"flex",alignItems:"center",
-                  justifyContent:"center",gap:5}}>
-                {hasItems&&<span style={{width:6,height:6,borderRadius:"50%",background:color,
-                  display:"inline-block"}}/>}
-                {label}
-              </div>
-              <div style={{color:hasItems?color:T.sub,fontSize:22,fontWeight:800,lineHeight:1,
-                  fontVariantNumeric:"tabular-nums"}}>{value}</div>
-              <div style={{color:T.sub,fontSize:11,marginTop:6,display:"flex",alignItems:"center",
-                  justifyContent:"center",gap:4}}>
-                {sub}
-                {hasItems&&<span style={{color,fontSize:13,lineHeight:1,
-                  transform:active?"rotate(180deg)":"none",transition:"transform 0.2s",
-                  display:"inline-block"}}>▾</span>}
-              </div>
-            </div>
-          );
-        })}
       </div>
     </div>
   );
@@ -356,57 +322,118 @@ function PipelineCard({title,data,map}) {
   );
 }
 
-/* ─── ALERT PANEL (agrupado por empreendimento) ─────────────────────────── */
-function AlertPanel({type,groups,color,onPickEmp,activeEmp}) {
-  const isHab = type==="habitse";
-  const total = groups.reduce((s,g)=>s+g.items.length,0);
+/* ─── NOTIFICATION BELL ──────────────────────────────────────────────────── */
+function NotificationBell({count,open,onClick}) {
   return (
-    <div className="fadein" style={{background:T.card,border:`1px solid ${color}40`,
-        borderLeft:`4px solid ${color}`,borderRadius:10,overflow:"hidden",
-        marginBottom:22,boxShadow:`0 1px 6px ${color}14`}}>
-      <div style={{background:color+"10",padding:"10px 18px",borderBottom:`1px solid ${color}25`}}>
-        <span style={{color,fontSize:12,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.05em"}}>
-          {isHab
-            ? `Habite-se vencido — ${total} transferência${total===1?"":"s"} acima de 180 dias`
-            : `${total} processo${total===1?"":"s"} requer${total===1?"":"em"} atenção — distrato · inconforme · reavaliar`}
+    <button onClick={onClick} style={{position:"relative",background:open?T.redLt:"transparent",
+        border:`1px solid ${open?T.red+"50":T.border}`,borderRadius:8,
+        width:38,height:38,cursor:"pointer",display:"flex",alignItems:"center",
+        justifyContent:"center",transition:"all 0.15s",padding:0}}
+      onMouseEnter={e=>{if(!open)e.currentTarget.style.background=T.redLt;}}
+      onMouseLeave={e=>{if(!open)e.currentTarget.style.background="transparent";}}>
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none"
+        stroke={count>0?T.red:T.sub} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      </svg>
+      {count>0 && (
+        <span style={{position:"absolute",top:-5,right:-5,background:T.red,color:"#fff",
+            minWidth:18,height:18,borderRadius:9,fontSize:10,fontWeight:800,
+            display:"flex",alignItems:"center",justifyContent:"center",
+            padding:"0 5px",border:"2px solid #fff",fontVariantNumeric:"tabular-nums"}}>
+          {count>99?"99+":count}
         </span>
-        <span style={{color:T.sub,fontSize:11,marginLeft:10}}>
-          {groups.length} empreendimento{groups.length===1?"":"s"} · clique para filtrar a tabela
-        </span>
-      </div>
-      <div style={{padding:"12px 16px",display:"flex",flexWrap:"wrap",gap:8}}>
-        {groups.map(g => {
-          const active = activeEmp===g.emp;
-          return (
-            <button key={g.emp}
-              onClick={()=>onPickEmp(active?null:g.emp)}
-              style={{display:"flex",alignItems:"center",gap:10,
-                background: active ? color : color+"0E",
-                border:`1px solid ${active?color:color+"40"}`,
-                borderRadius:7, padding:"8px 14px", cursor:"pointer",
-                fontFamily:"inherit", transition:"all 0.15s",
-                boxShadow: active ? `0 2px 8px ${color}40` : "none"}}
-              onMouseEnter={e=>{if(!active)e.currentTarget.style.background=color+"1A";}}
-              onMouseLeave={e=>{if(!active)e.currentTarget.style.background=color+"0E";}}>
-              <span style={{color:active?"#fff":T.txt,fontSize:12,fontWeight:700,letterSpacing:"0.01em"}}>
-                {g.empLabel}
-              </span>
-              <span style={{background:active?"rgba(255,255,255,0.25)":color+"20",
-                  color:active?"#fff":color,
-                  borderRadius:20,padding:"1px 9px",fontSize:11,fontWeight:800,
-                  fontVariantNumeric:"tabular-nums"}}>
-                {g.items.length}
-              </span>
-              {isHab && (
-                <span style={{color:active?"rgba(255,255,255,0.85)":T.sub,fontSize:10,fontWeight:600}}>
-                  {g.maxDias}d
+      )}
+    </button>
+  );
+}
+
+/* ─── ALERT DROPDOWN ─────────────────────────────────────────────────────── */
+function AlertDropdown({habitseGroups,processoGroups,onPickEmp,activeEmp,activeType,onClose}) {
+  const [section,setSection] = useState(
+    habitseGroups.length>0 ? "habitse" : "processo"
+  );
+  const nHab = habitseGroups.reduce((s,g)=>s+g.items.length,0);
+  const nPro = processoGroups.reduce((s,g)=>s+g.items.length,0);
+  const groups = section==="habitse" ? habitseGroups : processoGroups;
+  const color  = section==="habitse" ? T.amber : T.danger;
+
+  const SecTab = ({id,label,n,c}) => (
+    <button onClick={()=>setSection(id)} style={{flex:1,padding:"10px 8px",border:"none",
+        cursor:"pointer",fontFamily:"inherit",fontWeight:700,fontSize:11,
+        textTransform:"uppercase",letterSpacing:"0.04em",
+        background: section===id ? "#fff" : "transparent",
+        color: section===id ? c : T.sub,
+        borderBottom: section===id ? `2px solid ${c}` : "2px solid transparent",
+        transition:"all 0.15s"}}>
+      {label} <span style={{background:c+"20",color:c,borderRadius:10,padding:"1px 7px",
+        fontSize:10,marginLeft:3,fontVariantNumeric:"tabular-nums"}}>{n}</span>
+    </button>
+  );
+
+  return (
+    <>
+      {/* backdrop */}
+      <div onClick={onClose} style={{position:"fixed",inset:0,zIndex:200}}/>
+      {/* panel */}
+      <div className="fadein" style={{position:"absolute",top:48,right:0,width:380,
+          background:"#fff",border:`1px solid ${T.border}`,borderRadius:10,
+          boxShadow:"0 12px 40px rgba(0,0,0,0.18)",zIndex:201,overflow:"hidden"}}>
+        {/* header */}
+        <div style={{padding:"12px 16px",borderBottom:`1px solid ${T.border}`,
+            display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:13,fontWeight:800,color:T.txt}}>Central de Alertas</span>
+          <span style={{color:T.sub,fontSize:11}}>{nHab+nPro} no total</span>
+        </div>
+        {/* section tabs */}
+        <div style={{display:"flex",background:T.zebra,borderBottom:`1px solid ${T.border}`}}>
+          <SecTab id="habitse"  label="Habite-se"  n={nHab} c={T.amber}/>
+          <SecTab id="processo" label="Atenção"    n={nPro} c={T.danger}/>
+        </div>
+        {/* body */}
+        <div style={{maxHeight:340,overflowY:"auto",padding:"8px"}}>
+          {groups.length===0 ? (
+            <div style={{padding:"28px 16px",textAlign:"center",color:T.sub,fontSize:12}}>
+              Nenhum alerta nesta categoria.
+            </div>
+          ) : groups.map(g => {
+            const active = activeType===section && activeEmp===g.emp;
+            return (
+              <button key={g.emp}
+                onClick={()=>onPickEmp(section, active?null:g.emp)}
+                style={{width:"100%",display:"flex",alignItems:"center",
+                  justifyContent:"space-between",gap:10,
+                  background: active ? color+"12" : "transparent",
+                  border:`1px solid ${active?color+"50":"transparent"}`,
+                  borderRadius:7,padding:"10px 12px",cursor:"pointer",
+                  fontFamily:"inherit",transition:"all 0.12s",marginBottom:2,textAlign:"left"}}
+                onMouseEnter={e=>{if(!active)e.currentTarget.style.background=T.zebra;}}
+                onMouseLeave={e=>{if(!active)e.currentTarget.style.background="transparent";}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{width:8,height:8,borderRadius:"50%",background:color,flexShrink:0}}/>
+                  <div>
+                    <div style={{color:T.txt,fontSize:12,fontWeight:700}}>{g.empLabel}</div>
+                    {section==="habitse" && (
+                      <div style={{color:T.sub,fontSize:10,marginTop:1}}>vencido há {g.maxDias} dias</div>
+                    )}
+                  </div>
+                </div>
+                <span style={{background:color+"18",color,borderRadius:20,
+                    padding:"2px 10px",fontSize:11,fontWeight:800,flexShrink:0,
+                    fontVariantNumeric:"tabular-nums"}}>
+                  {g.items.length} un.
                 </span>
-              )}
-            </button>
-          );
-        })}
+              </button>
+            );
+          })}
+        </div>
+        {/* footer hint */}
+        <div style={{padding:"9px 16px",borderTop:`1px solid ${T.border}`,
+            background:T.zebra,color:T.sub,fontSize:10,textAlign:"center"}}>
+          Clique em um empreendimento para filtrar a tabela
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -441,8 +468,9 @@ function Dashboard() {
   const [tab,     setTab]     = useState("todos");
   const [q,       setQ]       = useState("");
   const [tick,    setTick]    = useState(0);
-  const [activeAlert, setActiveAlert] = useState(null);  // "habitse" | "processo" | null
-  const [activeEmp,   setActiveEmp]   = useState(null);  // empreendimento selecionado p/ filtrar
+  const [bellOpen,   setBellOpen]   = useState(false);
+  const [activeType, setActiveType] = useState(null);  // "habitse" | "processo" | null
+  const [activeEmp,  setActiveEmp]  = useState(null);  // empreendimento p/ filtrar tabela
 
   useEffect(()=>{
     let alive=true;
@@ -533,10 +561,10 @@ function Dashboard() {
 
   // When an alert is active + emp picked, the table filters to those units
   const alertFilterKeys = useMemo(()=>{
-    if(!activeAlert||!activeEmp) return null;
-    const src = activeAlert==="habitse" ? habitseAlerts.map(x=>x.row) : processAlerts;
+    if(!activeType||!activeEmp) return null;
+    const src = activeType==="habitse" ? habitseAlerts.map(x=>x.row) : processAlerts;
     return new Set(src.filter(r=>extractEmp(r["CHAVE PRODUTO"])===activeEmp).map(r=>r["N"]));
-  },[activeAlert,activeEmp,habitseAlerts,processAlerts]);
+  },[activeType,activeEmp,habitseAlerts,processAlerts]);
 
   // Grouped rows for table
   const tableRows = useMemo(()=>{
@@ -593,10 +621,14 @@ function Dashboard() {
     </div>
   );
 
-  const handleToggleAlert = id => {
-    if(activeAlert===id){ setActiveAlert(null); setActiveEmp(null); }
-    else { setActiveAlert(id); setActiveEmp(null); }
+  const handlePickEmp = (type,emp) => {
+    setActiveType(emp?type:null);
+    setActiveEmp(emp);
+    setBellOpen(false);  // fecha o dropdown ao filtrar
   };
+  const clearAlertFilter = () => { setActiveType(null); setActiveEmp(null); };
+
+  const totalAlerts = habitseAlerts.length + processAlerts.length;
 
   const Tab=({id,label})=>(
     <button onClick={()=>setTab(id)} style={{padding:"6px 16px",borderRadius:6,border:"none",
@@ -626,6 +658,16 @@ function Dashboard() {
         </div>
         <div style={{display:"flex",gap:14,alignItems:"center"}}>
           {lastUpd&&<span style={{color:T.sub,fontSize:11}}>{lastUpdStr}</span>}
+          <div style={{position:"relative"}}>
+            <NotificationBell count={totalAlerts} open={bellOpen}
+              onClick={()=>setBellOpen(o=>!o)}/>
+            {bellOpen && (
+              <AlertDropdown
+                habitseGroups={habitseGroups} processoGroups={processoGroups}
+                onPickEmp={handlePickEmp} activeEmp={activeEmp} activeType={activeType}
+                onClose={()=>setBellOpen(false)}/>
+            )}
+          </div>
           <button onClick={()=>setTick(t=>t+1)} style={{background:T.red,color:"#fff",border:"none",
               borderRadius:6,padding:"6px 16px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:"inherit"}}>
             Atualizar</button>
@@ -643,19 +685,7 @@ function Dashboard() {
         </div>
 
         {/* KPI BANNER (com alertas clicáveis integrados) */}
-        <KPIBanner kpis={kpis} nRec={nRec} nTrf={nTrf} total={rows.length}
-          nHabitse={habitseAlerts.length} nProcesso={processAlerts.length}
-          activeAlert={activeAlert} onToggleAlert={handleToggleAlert}/>
-
-        {/* PAINEL DE ALERTA EXPANDÍVEL */}
-        {activeAlert==="habitse" && habitseGroups.length>0 && (
-          <AlertPanel type="habitse" groups={habitseGroups} color={T.amber}
-            onPickEmp={setActiveEmp} activeEmp={activeEmp}/>
-        )}
-        {activeAlert==="processo" && processoGroups.length>0 && (
-          <AlertPanel type="processo" groups={processoGroups} color={T.danger}
-            onPickEmp={setActiveEmp} activeEmp={activeEmp}/>
-        )}
+        <KPIBanner kpis={kpis} nRec={nRec} nTrf={nTrf} total={rows.length}/>
 
         {/* PIPELINE */}
         <div style={{display:"flex",gap:16,marginBottom:20,flexWrap:"wrap"}}>
@@ -674,12 +704,12 @@ function Dashboard() {
                 Detalhamento por Unidade
               </span>
               {alertFilterKeys && (
-                <span onClick={()=>{setActiveAlert(null);setActiveEmp(null);}}
+                <span onClick={clearAlertFilter}
                   style={{display:"inline-flex",alignItems:"center",gap:6,
                     background:"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.4)",
                     borderRadius:20,padding:"3px 12px",cursor:"pointer",
                     color:"#fff",fontSize:11,fontWeight:700}}>
-                  Filtro: {activeEmp?empLabel(activeEmp):""} · {alertFilterKeys.size} un. ✕
+                  {activeType==="habitse"?"Habite-se":"Atenção"}: {activeEmp?empLabel(activeEmp):""} · {alertFilterKeys.size} un. ✕
                 </span>
               )}
             </div>
