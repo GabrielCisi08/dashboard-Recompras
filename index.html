@@ -144,7 +144,10 @@ const norm = s => String(s||"").toUpperCase()
 const HABITE_SE = {};
 Object.entries(HABITE_SE_RAW).forEach(([k,v]) => { HABITE_SE[norm(k)] = v; });
 
-const extractEmp = chave => norm(String(chave||"").replace(/\s+U-\d+.*$/i,""));
+const extractEmp = chave => norm(String(chave||"")
+  .replace(/\s+[A-Za-z0-9]{1,3}\s*-\s*\d+.*$/,"")   // " U-0202", " 1-0202", " 2-0202", " A-0202"
+  .replace(/\s+U\s*-?\s*\d+.*$/i,"")                // fallback "U0202" / "U 0202"
+  .trim());
 
 // Dias desde o habite-se (null se não for transferência ou sem data)
 const diasHabitse = row => {
