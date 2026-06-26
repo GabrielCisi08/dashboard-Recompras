@@ -575,6 +575,12 @@ function Dashboard() {
                       <td style={{padding:"9px 14px",fontWeight:700,color:T.txt,
                           borderRight:`1px solid ${T.border}`,whiteSpace:"nowrap"}}>
                         {r["CHAVE PRODUTO"]}
+                        {diasHabitse(r)!==null && (
+                          <span style={{marginLeft:8,color:T.blue,fontSize:10,fontWeight:600,
+                              verticalAlign:"middle"}}>
+                            habite-se {diasHabitse(r)}d
+                          </span>
+                        )}
                       </td>
                       <td style={{padding:"9px 14px",color:T.sub,maxWidth:160,overflow:"hidden",
                           textOverflow:"ellipsis",whiteSpace:"nowrap",borderRight:`1px solid ${T.border}`}}>
