@@ -40,6 +40,15 @@ const FETCH_URLS = [URL1, URL2,
   `https://api.allorigins.win/raw?url=${encodeURIComponent(URL2)}`,
 ];
 
+// Segunda aba: custas projetadas detalhadas (contém QUITAÇÃO FIN CEF)
+const SHEET_CUSTAS = "custas projetadas detalhadas";
+const CUSTAS_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_CUSTAS)}`;
+const CUSTAS_URLS = [
+  CUSTAS_URL,
+  `https://corsproxy.io/?url=${encodeURIComponent(CUSTAS_URL)}`,
+  `https://api.allorigins.win/raw?url=${encodeURIComponent(CUSTAS_URL)}`,
+];
+
 /* ─── TOKENS ─────────────────────────────────────────────────────────────── */
 const T = {
   bg:"#f2eeee", card:"#ffffff", zebra:"#faf6f6", border:"#e6dcdc",
@@ -284,8 +293,8 @@ function KPIBanner({kpis,nRec,nTrf,total}) {
     ? Math.round((kpis.receitaReal/kpis.receitaPrevista)*100) : 0;
   const blocks = [
     {label:"Total de Processos", value:total, sub:`${nRec} recompras · ${nTrf} transf.`, color:T.txt},
-    {label:"Valor Gasto Total",  value:fmtBRL(kpis.totalCustas), sub:"Previsão total de custas", color:T.amber},
-    {label:"Receita Prevista",   value:fmtBRL(kpis.receitaPrevista), sub:"Valor nova venda — todos", color:T.txt},
+    {label:"Valor Gasto Total",  value:fmtBRL(kpis.totalCustas), sub:"Custos já pagos — desembolsado", color:T.amber},
+    {label:"Receita Prevista",   value:fmtBRL(kpis.receitaPrevista), sub:"Líquida — transf. deduz saldo CEF", color:T.txt},
     {label:"Receita Real",       value:fmtBRL(kpis.receitaReal),
       sub:`${taxaRealizacao}% realizada · finalizado · registrado · venda direta`, color:T.green},
   ];
@@ -366,6 +375,7 @@ function Dashboard() {
   const [tab,     setTab]     = useState("todos");
   const [q,       setQ]       = useState("");
   const [tick,    setTick]    = useState(0);
+  const [cefMap,  setCefMap]  = useState({});  // CHAVE PRODUTO → QUITAÇÃO FIN CEF
 
   useEffect(()=>{
     let alive=true;
@@ -385,11 +395,41 @@ function Dashboard() {
               error:()=>resolve([]),
             })
           );
-          if(result.length>0&&alive){setRows(result);setLastUpd(new Date());setLoading(false);return;}
+          if(result.length>0&&alive){setRows(result);setLastUpd(new Date());setLoading(false);
+            fetchCustas(alive); return;}
         }catch(e){}
       }
       if(alive){setErr("Não foi possível carregar a planilha.");setLoading(false);}
     })();
+
+    // Busca a aba de custas projetadas detalhadas (QUITAÇÃO FIN CEF)
+    async function fetchCustas(isAlive){
+      for(const url of CUSTAS_URLS){
+        try{
+          const res=await fetch(url);
+          if(!res.ok) continue;
+          const txt=await res.text();
+          if(!txt.includes(",")||txt.trim().startsWith("<!")) continue;
+          const data=await new Promise(resolve=>
+            Papa.parse(txt,{header:true,
+              transformHeader:h=>h.replace(/^\uFEFF/,"").trim(),
+              skipEmptyLines:true,
+              complete:({data})=>resolve(data),
+              error:()=>resolve([]),
+            })
+          );
+          if(data.length>0&&isAlive){
+            const map={};
+            data.forEach(r=>{
+              const key=norm(r["UNIDADE"]);
+              if(key) map[key]=parseNum(r["QUITAÇÃO FIN CEF"]);
+            });
+            setCefMap(map);
+            return;
+          }
+        }catch(e){}
+      }
+    }
     return()=>{alive=false;};
   },[tick]);
 
@@ -413,19 +453,28 @@ function Dashboard() {
     );
   },[byTab,q]);
 
+  // Receita líquida por unidade: transferência deduz QUITAÇÃO FIN CEF (saldo transferido ao banco)
+  const receitaLiquida = r => {
+    const venda = parseNum(r["VALOR NOVA VENDA"]);
+    if(isRec(r)) return venda;  // recompra recebe valor cheio
+    const cef = cefMap[norm(r["CHAVE PRODUTO"])] || 0;
+    return venda - cef;
+  };
+
   const kpis = useMemo(()=>{
     const sum=k=>filtered.reduce((s,r)=>s+parseNum(r[k]),0);
     const lucros=filtered.map(r=>parseNum(r["PREVISÃO DE LUCRO"]));
+    const receitaPrevista=filtered.reduce((s,r)=>s+receitaLiquida(r),0);
     const receitaReal=filtered.reduce((s,r)=>
-      s + (repasseReceita(r["STATUS REPASSE"]) ? parseNum(r["VALOR NOVA VENDA"]) : 0), 0);
+      s + (repasseReceita(r["STATUS REPASSE"]) ? receitaLiquida(r) : 0), 0);
     return{total:filtered.length,
-      totalCustas:sum("PREVISÃO TOTAL CUSTAS"),      // Valor Gasto Total
-      receitaPrevista:sum("VALOR NOVA VENDA"),        // Receita Prevista (todos)
-      receitaReal,                                    // Receita Real (3 status)
+      totalCustas:sum("CUSTOS JÁ PAGOS"),            // Valor Gasto Total (efetivamente pago)
+      receitaPrevista,                                // Receita Prevista (líquida de CEF)
+      receitaReal,                                    // Receita Real (líquida, status repasse)
       totalVendas:sum("VALOR NOVA VENDA"),
       totalLucro:sum("PREVISÃO DE LUCRO"),
       positivos:lucros.filter(v=>v>0).length,negativos:lucros.filter(v=>v<0).length};
-  },[filtered]);
+  },[filtered,cefMap]);
 
   // Pipeline: Débitos respeita a regra Viabilizar Recompra
   const debData=useMemo(()=>groupCount(filtered,r=>isViabilizarRecompra(r)?VIABILIZAR:catDeb(r["STATUS SOLUÇÃO DE DEBITOS"])),[filtered]);
