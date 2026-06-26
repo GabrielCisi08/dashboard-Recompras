@@ -299,20 +299,20 @@ function KPIBanner({kpis,nRec,nTrf,total}) {
       sub:`${taxaRealizacao}% realizada · finalizado · registrado · venda direta`, color:T.green},
   ];
   return (
-    <div style={{background:T.card,border:`1px solid ${T.border}`,borderLeft:`4px solid ${T.red}`,
-        borderRadius:10,overflow:"hidden",marginBottom:22,boxShadow:"0 1px 6px #00000010"}}>
-      <div style={{display:"flex"}}>
-        {blocks.map(({label,value,sub,color},i) => (
-          <div key={i} style={{flex:1,padding:"18px 16px",textAlign:"center",
-              borderRight:i<blocks.length-1?`1px solid ${T.border}`:"none"}}>
-            <div style={{color:T.sub,fontSize:10,fontWeight:700,textTransform:"uppercase",
-                letterSpacing:"0.08em",marginBottom:8}}>{label}</div>
-            <div style={{color,fontSize:22,fontWeight:800,lineHeight:1,
-                whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>{value}</div>
-            <div style={{color:T.sub,fontSize:11,marginTop:6}}>{sub}</div>
-          </div>
-        ))}
-      </div>
+    <div style={{display:"flex",gap:16,marginBottom:22,flexWrap:"wrap"}}>
+      {blocks.map(({label,value,sub,color},i) => (
+        <div key={i} style={{flex:1,minWidth:230,
+            background:T.card,border:`1px solid ${T.border}`,
+            borderTop:`3px solid ${color===T.txt?T.red:color}`,
+            borderRadius:10,padding:"18px 20px",textAlign:"center",
+            boxShadow:"0 1px 5px #00000010"}}>
+          <div style={{color:T.sub,fontSize:10,fontWeight:700,textTransform:"uppercase",
+              letterSpacing:"0.08em",marginBottom:9}}>{label}</div>
+          <div style={{color,fontSize:24,fontWeight:800,lineHeight:1,
+              whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>{value}</div>
+          <div style={{color:T.sub,fontSize:11,marginTop:8}}>{sub}</div>
+        </div>
+      ))}
     </div>
   );
 }
