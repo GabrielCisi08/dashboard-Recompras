@@ -164,6 +164,14 @@ const repasseResolvido = s => {
   return u.includes("ASSINADO") || u.includes("REGISTRADO") || u.includes("FINALIZADO");
 };
 
+// Receita REAL: contratos com repasse finalizado-ok / registrado / venda direta
+const repasseReceita = s => {
+  const u = String(s||"").toUpperCase();
+  return u.includes("FINALIZADO")
+      || u.includes("REGISTRADO")
+      || u.includes("VENDA DIRETA");
+};
+
 // REGRA: transferência com habite-se > 180d E repasse não-resolvido → Viabilizar Recompra
 const isViabilizarRecompra = row => {
   const dias = diasHabitse(row);
@@ -271,13 +279,15 @@ function Logo() {
 }
 
 /* ─── KPI BANNER ─────────────────────────────────────────────────────────── */
-function KPIBanner({kpis,nRec,nTrf,total,nViab}) {
+function KPIBanner({kpis,nRec,nTrf,total}) {
+  const taxaRealizacao = kpis.receitaPrevista>0
+    ? Math.round((kpis.receitaReal/kpis.receitaPrevista)*100) : 0;
   const blocks = [
     {label:"Total de Processos", value:total, sub:`${nRec} recompras · ${nTrf} transf.`, color:T.txt},
-    {label:"Viabilizar Recompra", value:nViab, sub:"Transf. habite-se > 180d", color:T.red},
-    {label:"Volume de Vendas",  value:fmtBRL(kpis.totalVendas),  sub:"Valor nova venda — total", color:T.txt},
-    {label:"Lucro Previsto",    value:fmtBRL(kpis.totalLucro),   sub:`Custas: ${fmtBRL(kpis.totalCustas)}`,
-      color:kpis.totalLucro>=0?T.green:T.danger},
+    {label:"Valor Gasto Total",  value:fmtBRL(kpis.totalCustas), sub:"Previsão total de custas", color:T.amber},
+    {label:"Receita Prevista",   value:fmtBRL(kpis.receitaPrevista), sub:"Valor nova venda — todos", color:T.txt},
+    {label:"Receita Real",       value:fmtBRL(kpis.receitaReal),
+      sub:`${taxaRealizacao}% realizada · finalizado · registrado · venda direta`, color:T.green},
   ];
   return (
     <div style={{background:T.card,border:`1px solid ${T.border}`,borderLeft:`4px solid ${T.red}`,
@@ -406,8 +416,14 @@ function Dashboard() {
   const kpis = useMemo(()=>{
     const sum=k=>filtered.reduce((s,r)=>s+parseNum(r[k]),0);
     const lucros=filtered.map(r=>parseNum(r["PREVISÃO DE LUCRO"]));
-    return{total:filtered.length,totalVendas:sum("VALOR NOVA VENDA"),
-      totalLucro:sum("PREVISÃO DE LUCRO"),totalCustas:sum("PREVISÃO TOTAL CUSTAS"),
+    const receitaReal=filtered.reduce((s,r)=>
+      s + (repasseReceita(r["STATUS REPASSE"]) ? parseNum(r["VALOR NOVA VENDA"]) : 0), 0);
+    return{total:filtered.length,
+      totalCustas:sum("PREVISÃO TOTAL CUSTAS"),      // Valor Gasto Total
+      receitaPrevista:sum("VALOR NOVA VENDA"),        // Receita Prevista (todos)
+      receitaReal,                                    // Receita Real (3 status)
+      totalVendas:sum("VALOR NOVA VENDA"),
+      totalLucro:sum("PREVISÃO DE LUCRO"),
       positivos:lucros.filter(v=>v>0).length,negativos:lucros.filter(v=>v<0).length};
   },[filtered]);
 
@@ -549,7 +565,7 @@ function Dashboard() {
         </div>
 
         {/* KPI BANNER */}
-        <KPIBanner kpis={kpis} nRec={nRec} nTrf={nTrf} total={rows.length} nViab={nViab}/>
+        <KPIBanner kpis={kpis} nRec={nRec} nTrf={nTrf} total={rows.length}/>
 
         {/* PIPELINE */}
         <div style={{display:"flex",gap:16,marginBottom:20,flexWrap:"wrap"}}>
