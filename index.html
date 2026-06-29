@@ -402,6 +402,10 @@ function Dashboard() {
   const [q,       setQ]       = useState("");
   const [tick,    setTick]    = useState(0);
   const [cefMap,  setCefMap]  = useState({});  // CHAVE PRODUTO → QUITAÇÃO FIN CEF
+  const [sortCol, setSortCol] = useState(null);   // coluna de ordenação
+  const [sortDir, setSortDir] = useState("asc");  // asc | desc
+  const [colFilters, setColFilters] = useState({}); // {tipo, debitos, venda, repasse}
+  const [openFilter, setOpenFilter] = useState(null); // qual dropdown está aberto
 
   useEffect(()=>{
     let alive=true;
@@ -508,7 +512,63 @@ function Dashboard() {
   const venData=useMemo(()=>groupCount(filtered.filter(r=>!isViabilizarRecompra(r)),r=>catVen(r["STATUS VENDA"])),[filtered]);
   const repData=useMemo(()=>groupCount(filtered.filter(r=>!isViabilizarRecompra(r)),r=>catRep(r["STATUS REPASSE"])),[filtered]);
 
+  // Acessores por coluna (valor exibido) para filtro/ordenação
+  const colVal = {
+    num:     r => parseInt(r["N"])||0,
+    tipo:    r => isRec(r) ? "Recompra" : "Transferência",
+    unidade: r => r["CHAVE PRODUTO"]||"",
+    cliente: r => r["CLIENTE NOVO"]||r["CLIENTE ANTIGO"]||"",
+    debitos: r => isViabilizarRecompra(r) ? VIABILIZAR : catDeb(r["STATUS SOLUÇÃO DE DEBITOS"]),
+    venda:   r => isViabilizarRecompra(r) ? "—" : catVen(r["STATUS VENDA"]),
+    repasse: r => isViabilizarRecompra(r) ? "—" : (String(r["STATUS REPASSE"]||"").trim() ? faseRepasse(r["STATUS REPASSE"]) : "—"),
+    habitse: r => { const d=diasHabitse(r); return d===null ? -1 : d; },  // numérico p/ ordenar
+  };
+
+  // Opções únicas para cada dropdown de filtro
+  const filterOptions = useMemo(()=>{
+    const uniq = key => [...new Set(filtered.map(colVal[key]))].sort();
+    return {
+      tipo:    uniq("tipo"),
+      debitos: uniq("debitos"),
+      venda:   uniq("venda"),
+      repasse: uniq("repasse"),
+    };
+  },[filtered,cefMap]);
+
+  // Aplica filtros de coluna
+  const colFiltered = useMemo(()=>{
+    return filtered.filter(r=>{
+      for(const key of ["tipo","debitos","venda","repasse"]){
+        const sel = colFilters[key];
+        if(sel && sel!=="__all__" && colVal[key](r)!==sel) return false;
+      }
+      return true;
+    });
+  },[filtered,colFilters,cefMap]);
+
+  const sortActive = sortCol!==null;
+  const anyColFilter = Object.values(colFilters).some(v=>v&&v!=="__all__");
+
+  // Aplica ordenação
+  const sorted = useMemo(()=>{
+    if(!sortActive) return colFiltered;
+    const acc = colVal[sortCol];
+    const dir = sortDir==="asc"?1:-1;
+    return [...colFiltered].sort((a,b)=>{
+      const va=acc(a), vb=acc(b);
+      if(typeof va==="number" && typeof vb==="number") return (va-vb)*dir;
+      return String(va).localeCompare(String(vb),"pt-BR")*dir;
+    });
+  },[colFiltered,sortCol,sortDir,sortActive,cefMap]);
+
+  const toggleSort = col => {
+    if(sortCol===col){ setSortDir(d=>d==="asc"?"desc":"asc"); }
+    else { setSortCol(col); setSortDir("asc"); }
+  };
+
   const tableRows = useMemo(()=>{
+    // Ordenação ou filtro de coluna ativo → lista plana (sem agrupamento)
+    if(sortActive || anyColFilter) return sorted.map(r=>({type:"data",row:r}));
     if(tab!=="todos") return filtered.map(r=>({type:"data",row:r}));
     const recs=filtered.filter(isRec);
     const trfs=filtered.filter(r=>!isRec(r));
@@ -522,7 +582,7 @@ function Dashboard() {
       trfs.forEach(r=>result.push({type:"data",row:r}));
     }
     return result;
-  },[filtered,tab]);
+  },[filtered,tab,sortActive,anyColFilter,sorted]);
 
   if(loading) return (
     <div style={{background:T.bg,minHeight:"100vh",display:"flex",alignItems:"center",
@@ -657,24 +717,111 @@ function Dashboard() {
             <span style={{color:"#fff",fontWeight:700,fontSize:12,textTransform:"uppercase",letterSpacing:"0.06em"}}>
               Detalhamento por Unidade
             </span>
-            <input value={q} onChange={e=>setQ(e.target.value)}
-              placeholder="Buscar unidade, cliente, status..."
-              style={{background:"rgba(255,255,255,0.15)",border:"1px solid rgba(255,255,255,0.35)",
-                borderRadius:5,padding:"6px 13px",color:"#fff",fontSize:12,width:280,
-                outline:"none",fontFamily:"inherit"}}/>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              {(sortActive||anyColFilter) && (
+                <span onClick={()=>{setSortCol(null);setSortDir("asc");setColFilters({});}}
+                  style={{display:"inline-flex",alignItems:"center",gap:5,
+                    background:"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.4)",
+                    borderRadius:20,padding:"4px 12px",cursor:"pointer",
+                    color:"#fff",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>
+                  Limpar ordenação e filtros ✕
+                </span>
+              )}
+              <input value={q} onChange={e=>setQ(e.target.value)}
+                placeholder="Buscar unidade, cliente, status..."
+                style={{background:"rgba(255,255,255,0.15)",border:"1px solid rgba(255,255,255,0.35)",
+                  borderRadius:5,padding:"6px 13px",color:"#fff",fontSize:12,width:280,
+                  outline:"none",fontFamily:"inherit"}}/>
+            </div>
           </div>
 
           <div style={{overflowX:"auto",maxHeight:540,overflowY:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse",minWidth:880,fontSize:12}}>
               <thead>
-                <tr style={{position:"sticky",top:0,zIndex:2}}>
-                  {["#","Tipo","Unidade","Cliente","Débitos","Venda","Repasse"].map((label,i)=>(
-                    <th key={i} style={{padding:"10px 14px",background:T.red,color:"#fff",
-                        fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",
-                        textAlign:"left",whiteSpace:"nowrap",borderRight:`1px solid ${T.redDk}80`}}>
-                      {label}
-                    </th>
-                  ))}
+                <tr style={{position:"sticky",top:0,zIndex:3}}>
+                  {[
+                    {label:"#",       key:"num",     sort:true,  filter:false},
+                    {label:"Tipo",    key:"tipo",    sort:true,  filter:"tipo"},
+                    {label:"Unidade", key:"unidade", sort:true,  filter:false, alt:"habitse", altLabel:"⏱"},
+                    {label:"Cliente", key:"cliente", sort:true,  filter:false},
+                    {label:"Débitos", key:"debitos", sort:true,  filter:"debitos"},
+                    {label:"Venda",   key:"venda",   sort:true,  filter:"venda"},
+                    {label:"Repasse", key:"repasse", sort:true,  filter:"repasse"},
+                  ].map((col,i)=>{
+                    const isSorted = sortCol===col.key;
+                    const hasFilter = col.filter && colFilters[col.filter] && colFilters[col.filter]!=="__all__";
+                    return (
+                      <th key={i} style={{padding:"0",background:T.red,color:"#fff",
+                          fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",
+                          textAlign:"left",whiteSpace:"nowrap",borderRight:`1px solid ${T.redDk}80`,
+                          position:"relative"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:4,padding:"10px 14px"}}>
+                          <span onClick={()=>col.sort&&toggleSort(col.key)}
+                            style={{cursor:col.sort?"pointer":"default",userSelect:"none",
+                              display:"inline-flex",alignItems:"center",gap:3}}>
+                            {col.label}
+                            {col.sort && (
+                              <span style={{fontSize:8,opacity:isSorted?1:0.4}}>
+                                {isSorted ? (sortDir==="asc"?"▲":"▼") : "⇅"}
+                              </span>
+                            )}
+                          </span>
+                          {col.alt && (
+                            <span onClick={(e)=>{e.stopPropagation();toggleSort(col.alt);}}
+                              title="Ordenar por tempo de habite-se"
+                              style={{cursor:"pointer",fontSize:10,marginLeft:2,
+                                opacity:sortCol===col.alt?1:0.55,
+                                color:sortCol===col.alt?"#ffe08a":"#fff"}}>
+                              {col.altLabel}{sortCol===col.alt?(sortDir==="asc"?"▲":"▼"):""}
+                            </span>
+                          )}
+                          {col.filter && (
+                            <span onClick={(e)=>{e.stopPropagation();
+                                setOpenFilter(openFilter===col.filter?null:col.filter);}}
+                              style={{cursor:"pointer",fontSize:10,marginLeft:2,
+                                opacity:hasFilter?1:0.55,
+                                color:hasFilter?"#ffe08a":"#fff"}}>
+                              ⏷
+                            </span>
+                          )}
+                        </div>
+                        {/* dropdown de filtro */}
+                        {col.filter && openFilter===col.filter && (
+                          <>
+                            <div onClick={()=>setOpenFilter(null)}
+                              style={{position:"fixed",inset:0,zIndex:10}}/>
+                            <div style={{position:"absolute",top:"100%",left:0,zIndex:11,
+                                background:"#fff",border:`1px solid ${T.border}`,borderRadius:7,
+                                boxShadow:"0 8px 28px rgba(0,0,0,0.18)",minWidth:190,maxHeight:280,
+                                overflowY:"auto",padding:"4px",textTransform:"none",letterSpacing:"normal"}}>
+                              <div onClick={()=>{setColFilters(f=>({...f,[col.filter]:"__all__"}));setOpenFilter(null);}}
+                                style={{padding:"7px 12px",cursor:"pointer",fontSize:12,fontWeight:700,
+                                  color:T.red,borderRadius:5,
+                                  background:!hasFilter?T.redLt:"transparent"}}
+                                onMouseEnter={e=>e.currentTarget.style.background=T.zebra}
+                                onMouseLeave={e=>e.currentTarget.style.background=!hasFilter?T.redLt:"transparent"}>
+                                Todos
+                              </div>
+                              {filterOptions[col.filter].map(opt=>{
+                                const active=colFilters[col.filter]===opt;
+                                return (
+                                  <div key={opt}
+                                    onClick={()=>{setColFilters(f=>({...f,[col.filter]:opt}));setOpenFilter(null);}}
+                                    style={{padding:"7px 12px",cursor:"pointer",fontSize:12,
+                                      color:T.txt,fontWeight:active?700:400,borderRadius:5,
+                                      background:active?T.redLt:"transparent"}}
+                                    onMouseEnter={e=>e.currentTarget.style.background=T.zebra}
+                                    onMouseLeave={e=>e.currentTarget.style.background=active?T.redLt:"transparent"}>
+                                    {opt}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </>
+                        )}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
