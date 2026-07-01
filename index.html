@@ -182,11 +182,18 @@ const repasseReceita = s => {
 };
 
 // REGRA: transferência com habite-se > 180d E repasse não-resolvido → Viabilizar Recompra
+// "COM VENDA": marcador na base (STATUS VENDA) que indica venda em andamento
+const temComVenda = row => norm(row["STATUS VENDA"]).includes("COM VENDA");
+
+// Caso é elegível ao badge "Viabilizar Recompra": habite-se > 180d + repasse não-resolvido
 const isViabilizarRecompra = row => {
   const dias = diasHabitse(row);
   if (dias === null || dias <= 180) return false;
   return !repasseResolvido(row["STATUS REPASSE"]);
 };
+
+// Deve ESVAZIAR Venda e Repasse? Só quando é viabilizar recompra E NÃO tem venda em andamento
+const deveEsvaziar = row => isViabilizarRecompra(row) && !temComVenda(row);
 
 /* ─── HELPERS ────────────────────────────────────────────────────────────── */
 const parseNum = v => {
@@ -509,8 +516,8 @@ function Dashboard() {
   // Pipeline: Débitos respeita a regra Viabilizar Recompra
   const debData=useMemo(()=>groupCount(filtered,r=>isViabilizarRecompra(r)?VIABILIZAR:catDeb(r["STATUS SOLUÇÃO DE DEBITOS"])),[filtered]);
   // Venda e Repasse: casos viabilizar saem da contagem (status em branco)
-  const venData=useMemo(()=>groupCount(filtered.filter(r=>!isViabilizarRecompra(r)),r=>catVen(r["STATUS VENDA"])),[filtered]);
-  const repData=useMemo(()=>groupCount(filtered.filter(r=>!isViabilizarRecompra(r)),r=>catRep(r["STATUS REPASSE"])),[filtered]);
+  const venData=useMemo(()=>groupCount(filtered.filter(r=>!deveEsvaziar(r)),r=>catVen(r["STATUS VENDA"])),[filtered]);
+  const repData=useMemo(()=>groupCount(filtered.filter(r=>!deveEsvaziar(r)),r=>catRep(r["STATUS REPASSE"])),[filtered]);
 
   // Acessores por coluna (valor exibido) para filtro/ordenação
   const colVal = {
@@ -519,8 +526,8 @@ function Dashboard() {
     unidade: r => r["CHAVE PRODUTO"]||"",
     cliente: r => r["CLIENTE NOVO"]||r["CLIENTE ANTIGO"]||"",
     debitos: r => isViabilizarRecompra(r) ? VIABILIZAR : catDeb(r["STATUS SOLUÇÃO DE DEBITOS"]),
-    venda:   r => isViabilizarRecompra(r) ? "—" : catVen(r["STATUS VENDA"]),
-    repasse: r => isViabilizarRecompra(r) ? "—" : (String(r["STATUS REPASSE"]||"").trim() ? faseRepasse(r["STATUS REPASSE"]) : "—"),
+    venda:   r => deveEsvaziar(r) ? "—" : catVen(r["STATUS VENDA"]),
+    repasse: r => deveEsvaziar(r) ? "—" : (String(r["STATUS REPASSE"]||"").trim() ? faseRepasse(r["STATUS REPASSE"]) : "—"),
     habitse: r => { const d=diasHabitse(r); return d===null ? -1 : d; },  // numérico p/ ordenar
   };
 
@@ -832,6 +839,7 @@ function Dashboard() {
                   const r=item.row;
                   const rec=isRec(r);
                   const viab=isViabilizarRecompra(r);
+                  const esvaziar=deveEsvaziar(r);
                   dataIdx++;
                   const rowBg=viab?"#fdf0f0":(dataIdx%2===0?T.zebra:"#fff");
                   return (
@@ -869,11 +877,11 @@ function Dashboard() {
                           : <Badge text={catDeb(r["STATUS SOLUÇÃO DE DEBITOS"])} map={C.deb}/>}
                       </td>
                       <td style={{padding:"9px 14px",borderRight:`1px solid ${T.border}`,whiteSpace:"nowrap"}}>
-                        {viab ? <span style={{color:T.sub}}>—</span> : <Badge text={catVen(r["STATUS VENDA"])} map={C.ven}/>}
+                        {esvaziar ? <span style={{color:T.sub}}>—</span> : <Badge text={catVen(r["STATUS VENDA"])} map={C.ven}/>}
                       </td>
                       <td style={{padding:"9px 14px",whiteSpace:"nowrap"}}
-                        title={viab?"":(r["STATUS REPASSE"]||"")}>
-                        {viab ? <span style={{color:T.sub}}>—</span>
+                        title={esvaziar?"":(r["STATUS REPASSE"]||"")}>
+                        {esvaziar ? <span style={{color:T.sub}}>—</span>
                           : (r["STATUS REPASSE"]||"").trim()
                             ? (()=>{const f=faseRepasse(r["STATUS REPASSE"]),c=corFase(f);
                                 return <span style={{display:"inline-block",background:c+"18",color:c,
